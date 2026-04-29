@@ -498,7 +498,7 @@
       try {
         await push(ref(database, "form/"), record);
         showResult(result, giftScores, ministryScores);
-        alert(t("success"));
+       
       } catch (error) {
         console.error(error);
         alert(t("error"));
