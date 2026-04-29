@@ -8,6 +8,8 @@
 
   <title>LINC Spiritual Gifts Assessment</title>
 
+  <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-app.js";
     import { getDatabase, ref, push } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-database.js";
@@ -22,8 +24,21 @@
       appId: "1:573697013702:web:fe132fc4d796c06bdbe4c7"
     };
 
+    const EMAILJS_SERVICE_ID = "service_v47g6or";
+    const EMAILJS_TEMPLATE_ID = "template_a0iy1xy";
+    const EMAILJS_PUBLIC_KEY = "x_Xx3UHe3-yE1I13_";
+
+    const TARGET_EMAILS = [
+      "kasedra@proton.me",
+      "rev.Ibrahim@lincministry.com"
+    ];
+
     const app = initializeApp(firebaseConfig);
     const database = getDatabase(app);
+
+    emailjs.init({
+      publicKey: EMAILJS_PUBLIC_KEY
+    });
 
     let currentLanguage = "English";
 
@@ -38,6 +53,7 @@
         ministryFit: "Part Three — Ministry Alignment and Experience",
         vision: "Part Four — Calling and Vision Questions",
         submit: "Submit Assessment",
+        submitting: "Submitting...",
         required: "Please complete all required fields.",
         success: "Assessment submitted successfully.",
         error: "Submission failed.",
@@ -58,6 +74,7 @@
         ministryFit: "الجزء الثالث — التوافق والخبرة نحو الخدمة",
         vision: "الجزء الرابع — أسئلة الدعوة والرؤية",
         submit: "إرسال التقييم",
+        submitting: "جارٍ الإرسال...",
         required: "يرجى إكمال جميع الحقول المطلوبة.",
         success: "تم إرسال التقييم بنجاح.",
         error: "فشل إرسال التقييم.",
@@ -287,7 +304,7 @@
               ${visionQuestions.map(createLongQuestion).join("")}
             </section>
 
-            <button type="submit" class="submit-btn">${t("submit")}</button>
+            <button type="submit" id="submitBtn" class="submit-btn">${t("submit")}</button>
           </form>
 
           <div id="resultBox" class="result-box hidden"></div>
@@ -421,6 +438,110 @@
       };
     }
 
+    function buildFullReport(answers, giftScores, ministryScores, result, submittedAt) {
+      const englishResult = result.English;
+      const arabicResult = result.Arabic;
+
+      const traineeLines = traineeFields.map(([id]) => {
+        const item = answers.trainee[id];
+        return `${item.fieldEnglish} / ${item.fieldArabic}: ${item.value || "N/A"}`;
+      });
+
+      const faithLines = textQuestions.map(([id]) => {
+        const item = answers.faith[id];
+        return `${item.questionEnglish}\n${item.questionArabic}\nAnswer: ${item.answer || "N/A"}`;
+      });
+
+      const giftLines = Object.keys(giftSections).map(sectionKey => {
+        const section = answers.gifts[sectionKey];
+        const questionLines = Object.keys(section.questions).map(questionKey => {
+          const item = section.questions[questionKey];
+          return `  ${questionKey}. ${item.questionEnglish}\n  ${item.questionArabic}\n  Score: ${item.score}/5`;
+        });
+
+        return `${section.sectionEnglish} / ${section.sectionArabic}\nTotal Score: ${giftScores[sectionKey]}/25\n${questionLines.join("\n\n")}`;
+      });
+
+      const ministryLines = ministryQuestions.map(([id]) => {
+        const item = answers.ministry[id];
+        return `${item.areaEnglish} / ${item.areaArabic}: ${item.score}/5`;
+      });
+
+      const visionLines = visionQuestions.map(([id]) => {
+        const item = answers.vision[id];
+        return `${item.questionEnglish}\n${item.questionArabic}\nAnswer: ${item.answer || "N/A"}`;
+      });
+
+      return [
+        "LINC SPIRITUAL GIFTS ASSESSMENT RESPONSE",
+        "=========================================",
+        "",
+        `Submitted At: ${submittedAt}`,
+        `Interface Language Used: ${currentLanguage}`,
+        "",
+        "TRAINEE INFORMATION",
+        "-------------------",
+        traineeLines.join("\n"),
+        "",
+        "ASSESSMENT RESULTS",
+        "------------------",
+        `Primary Gift: ${englishResult.primaryGift} / ${arabicResult.primaryGift}`,
+        `Secondary Gift: ${englishResult.secondaryGift} / ${arabicResult.secondaryGift}`,
+        `Recommended Ministry: ${englishResult.recommendedMinistry} / ${arabicResult.recommendedMinistry}`,
+        "",
+        "English Summary:",
+        englishResult.summary,
+        "",
+        "Arabic Summary:",
+        arabicResult.summary,
+        "",
+        "FAITH JOURNEY AND WALK WITH GOD",
+        "-------------------------------",
+        faithLines.join("\n\n"),
+        "",
+        "PERSONAL GIFTS ASSESSMENT",
+        "-------------------------",
+        giftLines.join("\n\n"),
+        "",
+        "MINISTRY ALIGNMENT AND EXPERIENCE",
+        "---------------------------------",
+        ministryLines.join("\n"),
+        "",
+        "CALLING AND VISION QUESTIONS",
+        "----------------------------",
+        visionLines.join("\n\n")
+      ].join("\n");
+    }
+
+    function buildEmailBaseParams(answers, result, submittedAt, fullReport) {
+      return {
+        fullName: answers.trainee.fullName.value || "Unknown",
+        surveyDate: answers.trainee.surveyDate.value || "N/A",
+        age: answers.trainee.age.value || "N/A",
+        interfaceLanguageUsed: currentLanguage,
+        submittedAt,
+        primaryGift: result.English.primaryGift,
+        secondaryGift: result.English.secondaryGift,
+        recommendedMinistry: result.English.recommendedMinistry,
+        fullReport
+      };
+    }
+
+    async function sendAssessmentEmails(emailBaseParams) {
+      const emailRequests = TARGET_EMAILS.map(targetEmail => {
+        return emailjs.send(
+          EMAILJS_SERVICE_ID,
+          EMAILJS_TEMPLATE_ID,
+          {
+            ...emailBaseParams,
+            to_email: targetEmail
+          }
+        );
+      });
+
+      await Promise.all(emailRequests);
+    }
+
     function showResult(result, giftScores, ministryScores) {
       const box = document.getElementById("resultBox");
       const langResult = result[currentLanguage];
@@ -474,22 +595,40 @@
       event.preventDefault();
 
       const form = event.target;
+      const submitBtn = document.getElementById("submitBtn");
 
       if (!form.checkValidity()) {
         alert(t("required"));
         return;
       }
 
+      submitBtn.disabled = true;
+      submitBtn.textContent = t("submitting");
+
+      const submittedAt = new Date().toLocaleString("en-CA", {
+        timeZone: "America/Toronto",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit"
+      });
+
       const answers = buildBilingualAnswers();
       const giftScores = calculateGiftScores();
       const ministryScores = calculateMinistryScores();
       const result = buildResult(giftScores, ministryScores);
+      const fullReport = buildFullReport(answers, giftScores, ministryScores, result, submittedAt);
+      const emailBaseParams = buildEmailBaseParams(answers, result, submittedAt, fullReport);
 
       const record = {
         tableNameEquivalent: "form",
         createdAt: Date.now(),
         createdAtISO: new Date().toISOString(),
+        createdAtEasternTime: submittedAt,
         interfaceLanguageUsed: currentLanguage,
+        notificationRecipients: TARGET_EMAILS,
         fields: answers,
         scores: {
           gifts: giftScores,
@@ -500,10 +639,14 @@
 
       try {
         await push(ref(database, "form/"), record);
+        await sendAssessmentEmails(emailBaseParams);
         showResult(result, giftScores, ministryScores);
       } catch (error) {
         console.error(error);
         alert(t("error"));
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = t("submit");
       }
     }
 
@@ -799,7 +942,7 @@
       font-weight: bold;
       cursor: pointer;
       box-shadow: 0 8px 18px rgba(139, 30, 30, 0.24);
-      transition: transform 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+      transition: transform 0.15s ease, background 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease;
     }
 
     .submit-btn:hover,
@@ -807,6 +950,12 @@
       background: var(--accent-dark);
       transform: translateY(-1px);
       box-shadow: 0 10px 22px rgba(139, 30, 30, 0.28);
+    }
+
+    .submit-btn:disabled {
+      cursor: not-allowed;
+      opacity: 0.72;
+      transform: none;
     }
 
     .submit-btn {
