@@ -1,0 +1,998 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>LINC Spiritual Gifts Assessment</title>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-app.js";
+    import { getDatabase, ref, push } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-database.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyAjBbnm8F76BCb9C5fluUyoZ2QnMSXlHOo",
+      authDomain: "test-c7bf3.firebaseapp.com",
+      databaseURL: "https://test-c7bf3-default-rtdb.firebaseio.com",
+      projectId: "test-c7bf3",
+      storageBucket: "test-c7bf3.firebasestorage.app",
+      messagingSenderId: "573697013702",
+      appId: "1:573697013702:web:fe132fc4d796c06bdbe4c7"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const database = getDatabase(app);
+
+    let currentLanguage = "English";
+
+    const labels = {
+      English: {
+        title: "LINC Spiritual Gifts & Personal Calling Assessment",
+        subtitle: "Leadership Development Program | 2026–2028",
+        switchLang: "العربية",
+        traineeInfo: "Trainee Information",
+        faithJourney: "Part One — Faith Journey and Walk with God",
+        gifts: "Part Two — Personal Gifts Assessment",
+        ministryFit: "Part Three — Ministry Alignment and Experience",
+        vision: "Part Four — Calling and Vision Questions",
+        submit: "Submit Assessment",
+        required: "Please complete all required fields.",
+        success: "Assessment submitted successfully.",
+        error: "Submission failed.",
+        resultTitle: "Assessment Results",
+        topGift: "Primary Gift",
+        secondGift: "Secondary Gift",
+        topMinistry: "Recommended Ministry Area",
+        scoreInstruction: "Rate each statement from 1 to 5.",
+        scale: "1 = Never, 2 = Rarely, 3 = Sometimes, 4 = Often, 5 = Always"
+      },
+      Arabic: {
+        title: "تقييم المواهب الروحية والدعوة الشخصية",
+        subtitle: "برنامج تطوير القيادة | 2026–2028",
+        switchLang: "English",
+        traineeInfo: "معلومات المتدرب",
+        faithJourney: "الجزء الأول — الرحلة الإيمانية والمسيرة مع الله",
+        gifts: "الجزء الثاني — تقييم المواهب الشخصية",
+        ministryFit: "الجزء الثالث — التوافق والخبرة نحو الخدمة",
+        vision: "الجزء الرابع — أسئلة الدعوة والرؤية",
+        submit: "إرسال التقييم",
+        required: "يرجى إكمال جميع الحقول المطلوبة.",
+        success: "تم إرسال التقييم بنجاح.",
+        error: "فشل إرسال التقييم.",
+        resultTitle: "نتائج التقييم",
+        topGift: "الموهبة الأساسية",
+        secondGift: "الموهبة الثانوية",
+        topMinistry: "مجال الخدمة المقترح",
+        scoreInstruction: "قيّم كل عبارة من 1 إلى 5.",
+        scale: "1 = أبداً، 2 = نادراً، 3 = أحياناً، 4 = غالباً، 5 = دائماً"
+      }
+    };
+
+    const traineeFields = [
+      ["fullName", "Full Name", "الاسم الكامل", "text", true],
+      ["surveyDate", "Survey Date", "تاريخ الاستبيان", "date", true],
+      ["age", "Age", "العمر", "number", true],
+      ["attendance", "How long have you attended LINC Mission, and in which city?", "منذ متى وأنت تحضر إلى الخدمة LINC Mission؟ وفي أي مدينة؟", "textarea", true],
+      ["currentService", "Current service at LINC Mission, if any", "خدمتك الحالية في الكنيسة LINC Mission، إن وجدت", "textarea", false],
+      ["workContext", "Job / Work Context", "وظيفتك / سياق عملك", "text", false],
+      ["arabicFluency", "Arabic Fluency", "الطلاقة في العربية", "text", false],
+      ["englishFluency", "English Fluency", "الطلاقة في الإنجليزية", "text", false],
+      ["otherLanguages", "Other Languages", "لغات أخرى", "text", false]
+    ];
+
+    const textQuestions = [
+      ["q1_1", "Briefly describe how you came to faith in Jesus Christ.", "صف بإيجاز كيف تعرفت على الإيمان بيسوع المسيح."],
+      ["q1_2", "What does your daily devotional life look like now?", "كيف تبدو حياتك التعبدية اليومية الآن؟"],
+      ["q1_3", "What is your biggest challenge in your Christian life now?", "ما هو أكبر تحدٍ أو صراع في حياتك المسيحية الآن؟"],
+      ["q1_4", "Which biblical character do you feel closest to, and why?", "أي شخصية في الكتاب المقدس تشعر بأنك الأقرب إليها، ولماذا؟"],
+      ["q1_5", "How do people who know you well describe you?", "كيف يصفك الأشخاص الذين يعرفونك جيدًا؟"]
+    ];
+
+    const visionQuestions = [
+      ["v1", "If you could do one thing for the Kingdom of God without limits, what would it be?", "إذا كان بإمكانك أن تفعل شيئًا واحدًا من أجل ملكوت الله دون قيود، فماذا سيكون؟"],
+      ["v2", "What grieves you? What injustice, suffering, or spiritual need moves you deeply?", "ما الذي يحزنك؟ ما هو الظلم أو المعاناة أو الحاجة الروحية التي تجعلك غاضباً أو تدفعك إلى البكاء؟"],
+      ["v3", "When do you feel most spiritually alive?", "متى تشعر بأنك أكثر حيوية روحياً؟"],
+      ["v4", "Which ministry area are you most drawn to in this program, and why?", "ما هو مجال الخدمة الذي تشعر بأنك منجذب إليه أكثر في هذا البرنامج، ولماذا؟"],
+      ["v5", "What is your greatest fear about serving in ministry leadership?", "ما هو أكبر مخاوفك بشأن العمل في قيادة الخدمة؟"],
+      ["v6", "Is there anything in your life or past that may be an obstacle to your calling? Optional/confidential.", "هل هناك أي جانب من جوانب حياتك أو ماضيك تشعر أنه قد يشكل عائقاً أمام تحقيق رسالتك؟ اختياري وسري."]
+    ];
+
+    const giftSections = {
+      A: {
+        en: "Apostolic Gift / Pioneering Ministry",
+        ar: "عَطيّة الرسولية / الخدمة الرائدة",
+        questions: [
+          ["A1", "I have vision and can see what a group or church could become in the future.", "أمتلك رؤية ثاقبة، فأستطيع أن أرى ما يمكن أن تصبح عليه أي مجموعة أو كنيسة في المستقبل."],
+          ["A2", "I feel driven to build new things, start new ministries, or pioneer new areas.", "أشعر بدافع قوي لبناء أشياء جديدة، وتأسيس خدمات جديدة، أو الريادة في مجالات لم يسبقني إليها الآخرون."],
+          ["A3", "I naturally take initiative in unstructured situations and help establish order and direction.", "بأسلوب طبيعي أتولى زمام الأمور في المواقف غير المنظمة، وأساعد في إرساء النظام والتوجيه."],
+          ["A4", "People see me as a leader even when I do not have an official title.", "ينظر إليّ الناس كقائد حتى عندما لا يكون لديّ لقب أو منصب رسمي."],
+          ["A5", "I care deeply about the health, growth, and management of the whole church, not only one area.", "أشعر باهتمام بالغ إزاء صحة نمو وإدارة الكنيسة بأكملها، وليس في منطقة واحدة فقط."]
+        ]
+      },
+      B: {
+        en: "Prophetic Gift / Intercession Heart",
+        ar: "عَطيّة النبوة / قلب الشفاعة",
+        questions: [
+          ["B1", "I am strongly drawn to long times of prayer; it feels natural rather than forced.", "أجد نفسي منجذباً بشدة إلى أوقات الصلاة الطويلة، وأشعر أنها طبيعية وليست واجباً مفروضاً."],
+          ["B2", "I often feel God speaks to me through Scripture, prayer, visions, dreams, or impressions.", "أشعر في كثير من الأحيان أن الله يخاطبني من خلال الكتاب المقدس أو الصلاة أو الرؤى والأحلام أو الانطباعات."],
+          ["B3", "I feel a strong burden to intercede for people, situations, or places.", "أشعر بعبء قوي للتضرع من أجل الناس أو المواقف أو الأماكن."],
+          ["B4", "I sometimes receive words of encouragement, visions, dreams, or guidance for others that prove accurate.", "أتلقى أحياناً إعلانات أو كلمات تشجيع أو رؤى أو أحلام أو توجيهات للآخرين تثبت صحتها."],
+          ["B5", "I am sensitive to spiritual atmospheres and notice when something feels spiritually wrong.", "أنا حساس للأجواء الروحية وألاحظ عندما يكون هناك شيء غير طبيعي في الجو الروحي."]
+        ]
+      },
+      C: {
+        en: "Evangelistic Gift / Sharing Jesus with the Lost",
+        ar: "عَطيّة التبشير / مشاركة يسوع مع الضالين",
+        questions: [
+          ["C1", "I feel urgency for people around me to know Jesus.", "أشعر برغبة ملحة وثقل في أن يعرف الناس من حولي يسوع."],
+          ["C2", "Speaking about my faith with unbelievers feels natural and joyful.", "أجد أنه من الطبيعي والمفرح أن أتحدث عن إيماني مع أشخاص لا يعرفون المسيح."],
+          ["C3", "My conversations with non-Christians naturally move toward spiritual topics.", "أجد أن محادثاتي مع غير المسيحيين تتجه بشكل طبيعي نحو المواضيع الروحية."],
+          ["C4", "When I hear the gospel presented, I feel strongly moved to invite people to respond.", "عندما أسمع تقديم الإنجيل، أشعر برغبة قوية في دعوة الناس للاستجابة."],
+          ["C5", "I feel concerned when the church does not reach out to the lost.", "أشعر بالحزن والقلق عندما لا تبذل كنيستي جهداً للتواصل مع الضالين."]
+        ]
+      },
+      D: {
+        en: "Pastoral Gift / Shepherd Heart",
+        ar: "عَطيّة الرعاية / قلب الراعي",
+        questions: [
+          ["D1", "I naturally notice when someone is hurting, isolated, or struggling.", "ألاحظ بشكل طبيعي عندما يكون شخص ما متألماً أو منعزلاً أو يعاني من مشكلة."],
+          ["D2", "People often come to me to share problems, ask advice, or be heard.", "كثيراً ما يأتي إليّ الناس ليشاركوا مشاكلهم أو يطلبوا النصيحة أو يجدوا من يستمع إليهم."],
+          ["D3", "I find deep fulfillment walking with someone over time as they grow and heal.", "أجد شبعاً عميقاً في مرافقة شخص ما على مدى فترة طويلة أثناء نموه وتعافيه."],
+          ["D4", "I feel protective responsibility toward people I care for.", "أشعر بالتزام تقديم الحماية تجاه الأشخاص الذين أهتم لأمرهم."],
+          ["D5", "I feel responsible toward the vulnerable, children, elderly, isolated, and broken.", "أشعر بمسؤولية تجاه الضعفاء: الأطفال، وكبار السن، والمنعزلين، والمكسورين."]
+        ]
+      },
+      E: {
+        en: "Teaching Gift / Training and Methodology",
+        ar: "عَطيّة التعليم / التدريب والمنهجية",
+        questions: [
+          ["E1", "I love studying Scripture deeply to understand meaning, context, and theology.", "أحب دراسة الكتاب المقدس بعمق لفهم المعنى والسياق واللاهوت الكامن وراء النص."],
+          ["E2", "When I learn something from Scripture, I immediately want to explain it to someone else.", "عندما أتعلم شيئاً جديداً من الكتاب المقدس، أرغب فوراً في شرحه أو تعليمه لشخص آخر."],
+          ["E3", "Biblical accuracy matters deeply to me, and I notice incorrect teaching.", "الدقة الكتابية مهمة للغاية بالنسبة لي، وألاحظ التعليم غير الصحيح أو غير الدقيق."],
+          ["E4", "I enjoy helping others understand complex truths clearly and simply.", "أجد متعة كبيرة في مساعدة الآخرين على فهم الحقائق المعقدة بطريقة بسيطة وواضحة."],
+          ["E5", "I naturally prepare, structure, and organize teaching content.", "أميل بطبيعتي إلى إعداد محتوى التدريس وهيكلته وتنظيمه."]
+        ]
+      }
+    };
+
+    const ministryQuestions = [
+      ["F1", "Prayer and Intercession", "الصلاة والشفاعة"],
+      ["F2", "Evangelism and Outreach", "التبشير والتواصل"],
+      ["F3", "Bible Teaching and Discipleship", "تعليم الكتاب المقدس والتلمذة"],
+      ["F4", "Spiritual Care and Follow-up", "الرعاية الروحية والمتابعة"],
+      ["F5", "Worship", "العبادة"],
+      ["F6", "Children’s Ministry", "خدمة الأطفال"],
+      ["F7", "Youth Ministry", "خدمة الشباب"],
+      ["F8", "Media and Technology", "الإعلام والتكنولوجيا"],
+      ["F9", "Administration and Oversight", "الإدارة والإشراف"],
+      ["F10", "Hospitality and Welcome", "الضيافة والترحيب"]
+    ];
+
+    const giftRecommendations = {
+      A: { en: "Apostolic / Pioneering Leadership", ar: "قيادة رسولية / خدمة رائدة" },
+      B: { en: "Prophetic / Intercession Ministry", ar: "خدمة نبوية / شفاعة" },
+      C: { en: "Evangelism and Outreach", ar: "التبشير والكرازة" },
+      D: { en: "Pastoral Care and Shepherding", ar: "الرعاية الروحية وقلب الراعي" },
+      E: { en: "Teaching, Training, and Discipleship", ar: "التعليم والتدريب والتلمذة" }
+    };
+
+    function t(key) {
+      return labels[currentLanguage][key];
+    }
+
+    function label(en, ar) {
+      return currentLanguage === "English" ? en : ar;
+    }
+
+    function createTextInput(field) {
+      const [id, en, ar, type, required] = field;
+
+      if (type === "textarea") {
+        return `
+          <div class="field">
+            <label for="${id}">${label(en, ar)} ${required ? "<span>*</span>" : ""}</label>
+            <textarea id="${id}" ${required ? "required" : ""}></textarea>
+          </div>
+        `;
+      }
+
+      return `
+        <div class="field">
+          <label for="${id}">${label(en, ar)} ${required ? "<span>*</span>" : ""}</label>
+          <input id="${id}" type="${type}" ${required ? "required" : ""}/>
+        </div>
+      `;
+    }
+
+    function createLongQuestion(q) {
+      const [id, en, ar] = q;
+      return `
+        <div class="field">
+          <label for="${id}">${label(en, ar)}</label>
+          <textarea id="${id}" required></textarea>
+        </div>
+      `;
+    }
+
+    function createRatingQuestion(q) {
+      const [id, en, ar] = q;
+      return `
+        <div class="rating-box">
+          <p class="question">${id}. ${label(en, ar)}</p>
+          <div class="rating-row">
+            ${[1,2,3,4,5].map(num => `
+              <label class="rating-option">
+                <input type="radio" name="${id}" value="${num}" required />
+                <span>${num}</span>
+              </label>
+            `).join("")}
+          </div>
+        </div>
+      `;
+    }
+
+    function renderForm() {
+      document.documentElement.lang = currentLanguage === "English" ? "en" : "ar";
+      document.documentElement.dir = currentLanguage === "English" ? "ltr" : "rtl";
+
+      document.getElementById("app").innerHTML = `
+        <main class="page-shell">
+          <div class="top-bar">
+            <button id="langBtn" class="lang-btn" type="button">${t("switchLang")}</button>
+          </div>
+
+          <header class="hero-card">
+            <div class="hero-mark">✦</div>
+            <h1>${t("title")}</h1>
+            <p>${t("subtitle")}</p>
+          </header>
+
+          <form id="assessmentForm" class="form-stack">
+            <section>
+              <h2>${t("traineeInfo")}</h2>
+              <div class="grid-two">
+                ${traineeFields.map(createTextInput).join("")}
+              </div>
+            </section>
+
+            <section>
+              <h2>${t("faithJourney")}</h2>
+              ${textQuestions.map(createLongQuestion).join("")}
+            </section>
+
+            <section>
+              <h2>${t("gifts")}</h2>
+              <p class="instruction">${t("scoreInstruction")}</p>
+              <p class="scale">${t("scale")}</p>
+
+              ${Object.keys(giftSections).map(sectionKey => `
+                <div class="subsection">
+                  <h3>${label(giftSections[sectionKey].en, giftSections[sectionKey].ar)}</h3>
+                  ${giftSections[sectionKey].questions.map(createRatingQuestion).join("")}
+                </div>
+              `).join("")}
+            </section>
+
+            <section>
+              <h2>${t("ministryFit")}</h2>
+              <p class="instruction">${t("scoreInstruction")}</p>
+              <p class="scale">${t("scale")}</p>
+              ${ministryQuestions.map(createRatingQuestion).join("")}
+            </section>
+
+            <section>
+              <h2>${t("vision")}</h2>
+              ${visionQuestions.map(createLongQuestion).join("")}
+            </section>
+
+            <button type="submit" class="submit-btn">${t("submit")}</button>
+          </form>
+
+          <div id="resultBox" class="result-box hidden"></div>
+        </main>
+      `;
+
+      document.getElementById("langBtn").addEventListener("click", () => {
+        currentLanguage = currentLanguage === "English" ? "Arabic" : "English";
+        renderForm();
+      });
+
+      document.getElementById("assessmentForm").addEventListener("submit", handleSubmit);
+    }
+
+    function getRadioValue(name) {
+      const checked = document.querySelector(`input[name="${name}"]:checked`);
+      return checked ? Number(checked.value) : 0;
+    }
+
+    function getFieldValue(id) {
+      const el = document.getElementById(id);
+      return el ? el.value.trim() : "";
+    }
+
+    function calculateGiftScores() {
+      const scores = {};
+
+      Object.keys(giftSections).forEach(sectionKey => {
+        scores[sectionKey] = giftSections[sectionKey].questions.reduce((sum, q) => {
+          return sum + getRadioValue(q[0]);
+        }, 0);
+      });
+
+      return scores;
+    }
+
+    function calculateMinistryScores() {
+      const scores = {};
+
+      ministryQuestions.forEach(q => {
+        scores[q[0]] = getRadioValue(q[0]);
+      });
+
+      return scores;
+    }
+
+    function getTopEntries(scoreObject) {
+      return Object.entries(scoreObject).sort((a, b) => b[1] - a[1]);
+    }
+
+    function buildBilingualAnswers() {
+      const trainee = {};
+      traineeFields.forEach(([id, en, ar]) => {
+        trainee[id] = {
+          fieldEnglish: en,
+          fieldArabic: ar,
+          value: getFieldValue(id)
+        };
+      });
+
+      const faith = {};
+      textQuestions.forEach(([id, en, ar]) => {
+        faith[id] = {
+          questionEnglish: en,
+          questionArabic: ar,
+          answer: getFieldValue(id)
+        };
+      });
+
+      const vision = {};
+      visionQuestions.forEach(([id, en, ar]) => {
+        vision[id] = {
+          questionEnglish: en,
+          questionArabic: ar,
+          answer: getFieldValue(id)
+        };
+      });
+
+      const gifts = {};
+      Object.keys(giftSections).forEach(sectionKey => {
+        gifts[sectionKey] = {
+          sectionEnglish: giftSections[sectionKey].en,
+          sectionArabic: giftSections[sectionKey].ar,
+          questions: {}
+        };
+
+        giftSections[sectionKey].questions.forEach(([id, en, ar]) => {
+          gifts[sectionKey].questions[id] = {
+            questionEnglish: en,
+            questionArabic: ar,
+            score: getRadioValue(id)
+          };
+        });
+      });
+
+      const ministry = {};
+      ministryQuestions.forEach(([id, en, ar]) => {
+        ministry[id] = {
+          areaEnglish: en,
+          areaArabic: ar,
+          score: getRadioValue(id)
+        };
+      });
+
+      return { trainee, faith, gifts, ministry, vision };
+    }
+
+    function buildResult(giftScores, ministryScores) {
+      const sortedGifts = getTopEntries(giftScores);
+      const sortedMinistry = getTopEntries(ministryScores);
+
+      const primaryGiftKey = sortedGifts[0][0];
+      const secondaryGiftKey = sortedGifts[1][0];
+      const topMinistryKey = sortedMinistry[0][0];
+
+      const topMinistryData = ministryQuestions.find(q => q[0] === topMinistryKey);
+
+      return {
+        English: {
+          primaryGift: giftRecommendations[primaryGiftKey].en,
+          secondaryGift: giftRecommendations[secondaryGiftKey].en,
+          recommendedMinistry: topMinistryData[1],
+          summary: `The strongest result is ${giftRecommendations[primaryGiftKey].en}. The secondary result is ${giftRecommendations[secondaryGiftKey].en}. The most aligned ministry area is ${topMinistryData[1]}.`
+        },
+        Arabic: {
+          primaryGift: giftRecommendations[primaryGiftKey].ar,
+          secondaryGift: giftRecommendations[secondaryGiftKey].ar,
+          recommendedMinistry: topMinistryData[2],
+          summary: `أقوى نتيجة هي ${giftRecommendations[primaryGiftKey].ar}. النتيجة الثانوية هي ${giftRecommendations[secondaryGiftKey].ar}. مجال الخدمة الأكثر توافقاً هو ${topMinistryData[2]}.`
+        }
+      };
+    }
+
+    function showResult(result, giftScores, ministryScores) {
+      const box = document.getElementById("resultBox");
+      const langResult = result[currentLanguage];
+
+      box.classList.remove("hidden");
+      box.innerHTML = `
+        <h2>${t("resultTitle")}</h2>
+
+        <div class="result-grid">
+          <div class="result-card">
+            <span>${t("topGift")}</span>
+            <strong>${langResult.primaryGift}</strong>
+          </div>
+          <div class="result-card">
+            <span>${t("secondGift")}</span>
+            <strong>${langResult.secondaryGift}</strong>
+          </div>
+          <div class="result-card">
+            <span>${t("topMinistry")}</span>
+            <strong>${langResult.recommendedMinistry}</strong>
+          </div>
+        </div>
+
+        <p class="result-summary">${langResult.summary}</p>
+
+        <h3>${currentLanguage === "English" ? "Gift Scores" : "نتائج المواهب"}</h3>
+        <ul class="score-list">
+          ${Object.keys(giftScores).map(key => `
+            <li>
+              <span>${label(giftSections[key].en, giftSections[key].ar)}</span>
+              <strong>${giftScores[key]} / 25</strong>
+            </li>
+          `).join("")}
+        </ul>
+
+        <h3>${currentLanguage === "English" ? "Ministry Scores" : "نتائج مجالات الخدمة"}</h3>
+        <ul class="score-list">
+          ${ministryQuestions.map(([id, en, ar]) => `
+            <li>
+              <span>${label(en, ar)}</span>
+              <strong>${ministryScores[id]} / 5</strong>
+            </li>
+          `).join("")}
+        </ul>
+      `;
+
+      box.scrollIntoView({ behavior: "smooth" });
+    }
+
+    async function handleSubmit(event) {
+      event.preventDefault();
+
+      const form = event.target;
+
+      if (!form.checkValidity()) {
+        alert(t("required"));
+        return;
+      }
+
+      const answers = buildBilingualAnswers();
+      const giftScores = calculateGiftScores();
+      const ministryScores = calculateMinistryScores();
+      const result = buildResult(giftScores, ministryScores);
+
+      const record = {
+        tableNameEquivalent: "form",
+        createdAt: Date.now(),
+        createdAtISO: new Date().toISOString(),
+        interfaceLanguageUsed: currentLanguage,
+        fields: answers,
+        scores: {
+          gifts: giftScores,
+          ministry: ministryScores
+        },
+        results: result
+      };
+
+      try {
+        await push(ref(database, "form/"), record);
+        showResult(result, giftScores, ministryScores);
+        alert(t("success"));
+      } catch (error) {
+        console.error(error);
+        alert(t("error"));
+      }
+    }
+
+    window.addEventListener("DOMContentLoaded", renderForm);
+  </script>
+
+  <style>
+    :root {
+      --bg: #f5f4f0;
+      --card: #ffffff;
+      --text: #242424;
+      --muted: #666;
+      --accent: #8b1e1e;
+      --accent-dark: #641414;
+      --border: #ddd;
+      --soft: #f8eeee;
+      --shadow: 0 8px 28px rgba(0, 0, 0, 0.08);
+      --radius-xl: 22px;
+      --radius-md: 14px;
+    }
+
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background:
+        radial-gradient(circle at top, rgba(139, 30, 30, 0.08), transparent 34rem),
+        var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+
+    button,
+    input,
+    textarea,
+    select {
+      font: inherit;
+    }
+
+    .page-shell {
+      width: min(1120px, 100%);
+      margin: 0 auto;
+      padding: 18px;
+    }
+
+    .top-bar {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      display: flex;
+      justify-content: flex-end;
+      padding: 10px 0;
+      backdrop-filter: blur(12px);
+    }
+
+    html[dir="rtl"] .top-bar {
+      justify-content: flex-start;
+    }
+
+    .hero-card {
+      position: relative;
+      text-align: center;
+      padding: clamp(26px, 5vw, 46px) 18px;
+      background: rgba(255, 255, 255, 0.92);
+      border: 1px solid rgba(139, 30, 30, 0.12);
+      border-radius: var(--radius-xl);
+      box-shadow: var(--shadow);
+      margin-bottom: 24px;
+      overflow: hidden;
+    }
+
+    .hero-card::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, rgba(139, 30, 30, 0.08), transparent 45%);
+      pointer-events: none;
+    }
+
+    .hero-mark {
+      position: relative;
+      width: 46px;
+      height: 46px;
+      display: grid;
+      place-items: center;
+      margin: 0 auto 10px;
+      border-radius: 50%;
+      color: white;
+      background: var(--accent);
+      box-shadow: 0 8px 18px rgba(139, 30, 30, 0.25);
+      font-size: 1.4rem;
+    }
+
+    h1 {
+      position: relative;
+      margin: 0 0 10px;
+      color: var(--accent);
+      font-size: clamp(1.55rem, 5vw, 2.45rem);
+      line-height: 1.2;
+      letter-spacing: -0.02em;
+    }
+
+    .hero-card p {
+      position: relative;
+      margin: 0;
+      color: var(--muted);
+      font-weight: bold;
+      font-size: clamp(0.95rem, 2.6vw, 1.08rem);
+    }
+
+    .form-stack {
+      display: flex;
+      flex-direction: column;
+      gap: 22px;
+    }
+
+    section {
+      background: rgba(255, 255, 255, 0.96);
+      border: 1px solid rgba(139, 30, 30, 0.1);
+      border-radius: var(--radius-xl);
+      padding: clamp(18px, 4vw, 28px);
+      box-shadow: var(--shadow);
+    }
+
+    h2 {
+      margin: 0 0 20px;
+      color: var(--accent);
+      border-bottom: 2px solid var(--soft);
+      padding-bottom: 10px;
+      font-size: clamp(1.22rem, 4vw, 1.55rem);
+      line-height: 1.35;
+    }
+
+    h3 {
+      color: var(--accent-dark);
+      margin: 26px 0 14px;
+      font-size: clamp(1.05rem, 3.5vw, 1.28rem);
+      line-height: 1.4;
+    }
+
+    .grid-two {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px;
+    }
+
+    .grid-two .field:nth-child(4),
+    .grid-two .field:nth-child(5) {
+      grid-column: 1 / -1;
+    }
+
+    .field {
+      margin-bottom: 18px;
+    }
+
+    .field:last-child {
+      margin-bottom: 0;
+    }
+
+    label {
+      display: block;
+      font-weight: bold;
+      margin-bottom: 7px;
+      color: #333;
+    }
+
+    label span {
+      color: var(--accent);
+    }
+
+    input,
+    textarea,
+    select {
+      width: 100%;
+      padding: 13px 14px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      font-size: 1rem;
+      background: #fff;
+      color: var(--text);
+      outline: none;
+      transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+    }
+
+    textarea {
+      min-height: 112px;
+      resize: vertical;
+    }
+
+    input:focus,
+    textarea:focus,
+    select:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 4px rgba(139, 30, 30, 0.12);
+    }
+
+    .instruction,
+    .scale {
+      background: var(--soft);
+      padding: 12px 14px;
+      border-radius: var(--radius-md);
+      font-weight: bold;
+      margin: 0 0 12px;
+      color: var(--accent-dark);
+    }
+
+    .subsection {
+      margin-top: 18px;
+    }
+
+    .rating-box {
+      border: 1px solid var(--border);
+      padding: 16px;
+      border-radius: 18px;
+      margin-bottom: 14px;
+      background: linear-gradient(180deg, #fff, #fffafa);
+    }
+
+    .question {
+      font-weight: bold;
+      margin: 0 0 14px;
+      color: #333;
+    }
+
+    .rating-row {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .rating-option {
+      position: relative;
+      display: grid;
+      place-items: center;
+      margin: 0;
+      min-height: 48px;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      cursor: pointer;
+      background: #fafafa;
+      transition: transform 0.15s ease, border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+      user-select: none;
+    }
+
+    .rating-option:hover {
+      transform: translateY(-1px);
+      border-color: rgba(139, 30, 30, 0.45);
+      box-shadow: 0 4px 12px rgba(139, 30, 30, 0.12);
+    }
+
+    .rating-option input {
+      position: absolute;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .rating-option span {
+      display: grid;
+      place-items: center;
+      width: 100%;
+      height: 100%;
+      font-weight: bold;
+      color: #444;
+    }
+
+    .rating-option:has(input:checked) {
+      background: var(--accent);
+      border-color: var(--accent);
+      box-shadow: 0 8px 18px rgba(139, 30, 30, 0.22);
+    }
+
+    .rating-option:has(input:checked) span {
+      color: #fff;
+    }
+
+    .submit-btn,
+    .lang-btn {
+      border: none;
+      background: var(--accent);
+      color: white;
+      padding: 14px 20px;
+      border-radius: 999px;
+      font-size: 1rem;
+      font-weight: bold;
+      cursor: pointer;
+      box-shadow: 0 8px 18px rgba(139, 30, 30, 0.24);
+      transition: transform 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    .submit-btn:hover,
+    .lang-btn:hover {
+      background: var(--accent-dark);
+      transform: translateY(-1px);
+      box-shadow: 0 10px 22px rgba(139, 30, 30, 0.28);
+    }
+
+    .submit-btn {
+      width: 100%;
+      min-height: 56px;
+      font-size: 1.08rem;
+      border-radius: 18px;
+      margin-bottom: 24px;
+    }
+
+    .lang-btn {
+      min-width: 112px;
+      min-height: 44px;
+    }
+
+    .result-box {
+      background: rgba(255, 255, 255, 0.98);
+      border: 2px solid var(--accent);
+      border-radius: var(--radius-xl);
+      padding: clamp(18px, 4vw, 28px);
+      margin: 6px 0 30px;
+      box-shadow: var(--shadow);
+    }
+
+    .result-box h2 {
+      border-bottom: none;
+      padding-bottom: 0;
+    }
+
+    .result-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+      margin-bottom: 18px;
+    }
+
+    .result-card {
+      background: var(--soft);
+      border: 1px solid rgba(139, 30, 30, 0.12);
+      border-radius: 18px;
+      padding: 16px;
+    }
+
+    .result-card span {
+      display: block;
+      color: var(--muted);
+      font-weight: bold;
+      margin-bottom: 6px;
+      font-size: 0.9rem;
+    }
+
+    .result-card strong {
+      color: var(--accent-dark);
+      font-size: 1.05rem;
+    }
+
+    .result-summary {
+      background: #fffafa;
+      border-left: 4px solid var(--accent);
+      padding: 14px 16px;
+      border-radius: 14px;
+      font-weight: bold;
+    }
+
+    html[dir="rtl"] .result-summary {
+      border-left: none;
+      border-right: 4px solid var(--accent);
+    }
+
+    .score-list {
+      list-style: none;
+      padding: 0;
+      margin: 0 0 18px;
+      display: grid;
+      gap: 10px;
+    }
+
+    .score-list li {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 14px;
+      background: #fafafa;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 12px 14px;
+    }
+
+    .score-list li strong {
+      white-space: nowrap;
+      color: var(--accent-dark);
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    @media (max-width: 820px) {
+      .grid-two {
+        grid-template-columns: 1fr;
+      }
+
+      .grid-two .field:nth-child(4),
+      .grid-two .field:nth-child(5) {
+        grid-column: auto;
+      }
+
+      .result-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 640px) {
+      .page-shell {
+        padding: 12px;
+      }
+
+      .top-bar {
+        padding: 8px 0;
+      }
+
+      .hero-card {
+        margin-bottom: 18px;
+      }
+
+      section {
+        border-radius: 18px;
+      }
+
+      .form-stack {
+        gap: 18px;
+      }
+
+      input,
+      textarea,
+      select {
+        font-size: 16px;
+        padding: 13px;
+      }
+
+      textarea {
+        min-height: 120px;
+      }
+
+      .rating-box {
+        padding: 14px;
+      }
+
+      .rating-row {
+        grid-template-columns: repeat(5, 1fr);
+        gap: 7px;
+      }
+
+      .rating-option {
+        min-height: 46px;
+        border-radius: 12px;
+      }
+
+      .score-list li {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+
+      .submit-btn {
+        position: sticky;
+        bottom: 10px;
+        z-index: 15;
+      }
+    }
+
+    @media (max-width: 390px) {
+      .rating-row {
+        gap: 6px;
+      }
+
+      .rating-option {
+        min-height: 42px;
+        border-radius: 10px;
+      }
+
+      h1 {
+        font-size: 1.42rem;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div id="app"></div>
+</body>
+</html>
