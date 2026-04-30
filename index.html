@@ -87,12 +87,53 @@
       }
     };
 
+    const reportLabels = {
+      English: {
+        title: "LINC SPIRITUAL GIFTS ASSESSMENT RESPONSE",
+        submittedAt: "Submitted At",
+        interfaceLanguageUsed: "Interface Language Used",
+        traineeInfo: "TRAINEE INFORMATION",
+        assessmentResults: "ASSESSMENT RESULTS",
+        primaryGift: "Primary Gift",
+        secondaryGift: "Secondary Gift",
+        recommendedMinistry: "Recommended Ministry",
+        summary: "Summary",
+        faithJourney: "FAITH JOURNEY AND WALK WITH GOD",
+        personalGifts: "PERSONAL GIFTS ASSESSMENT",
+        totalScore: "Total Score",
+        score: "Score",
+        answer: "Answer",
+        ministryAlignment: "MINISTRY ALIGNMENT AND EXPERIENCE",
+        callingVision: "CALLING AND VISION QUESTIONS",
+        notAvailable: "N/A"
+      },
+      Arabic: {
+        title: "نتيجة تقييم المواهب الروحية والدعوة الشخصية",
+        submittedAt: "وقت الإرسال",
+        interfaceLanguageUsed: "لغة النموذج المستخدمة",
+        traineeInfo: "معلومات المتدرب",
+        assessmentResults: "نتائج التقييم",
+        primaryGift: "الموهبة الأساسية",
+        secondaryGift: "الموهبة الثانوية",
+        recommendedMinistry: "مجال الخدمة المقترح",
+        summary: "الملخص",
+        faithJourney: "الرحلة الإيمانية والمسيرة مع الله",
+        personalGifts: "تقييم المواهب الشخصية",
+        totalScore: "الدرجة الإجمالية",
+        score: "الدرجة",
+        answer: "الإجابة",
+        ministryAlignment: "التوافق والخبرة نحو الخدمة",
+        callingVision: "أسئلة الدعوة والرؤية",
+        notAvailable: "غير متوفر"
+      }
+    };
+
     const traineeFields = [
       ["fullName", "Full Name", "الاسم الكامل", "text", true],
       ["surveyDate", "Survey Date", "تاريخ الاستبيان", "date", true],
       ["age", "Age", "العمر", "number", true],
-      ["attendance", "How long have you attended LINC Mission, and in which city?", "منذ متى وأنت تحضر إلى الخدمة LINC Mission؟ وفي أي مدينة؟", "textarea", true],
-      ["currentService", "Current service at LINC Mission, if any", "خدمتك الحالية في الكنيسة LINC Mission، إن وجدت", "textarea", false],
+      ["attendance", "How long have you attended LINC churches, and in which city?", "منذ متى وأنت تحضر إلى كنائس LINC؟ وفي أي مدينة؟", "textarea", true],
+      ["currentService", "Current service at LINC churches, if any", "خدمتك الحالية في كنائس LINC، إن وجدت", "textarea", false],
       ["workContext", "Job / Work Context", "وظيفتك / سياق عملك", "text", false],
       ["arabicFluency", "Arabic Fluency", "الطلاقة في العربية", "text", false],
       ["englishFluency", "English Fluency", "الطلاقة في الإنجليزية", "text", false],
@@ -200,6 +241,10 @@
     }
 
     function label(en, ar) {
+      return currentLanguage === "English" ? en : ar;
+    }
+
+    function selectedText(en, ar) {
       return currentLanguage === "English" ? en : ar;
     }
 
@@ -439,90 +484,99 @@
     }
 
     function buildFullReport(answers, giftScores, ministryScores, result, submittedAt) {
-      const englishResult = result.English;
-      const arabicResult = result.Arabic;
+      const language = currentLanguage;
+      const rl = reportLabels[language];
+      const langResult = result[language];
+      const separator = "=========================================";
+      const sectionSeparator = "-------------------------------";
 
       const traineeLines = traineeFields.map(([id]) => {
         const item = answers.trainee[id];
-        return `${item.fieldEnglish} / ${item.fieldArabic}: ${item.value || "N/A"}`;
+        const fieldLabel = selectedText(item.fieldEnglish, item.fieldArabic);
+        return `${fieldLabel}: ${item.value || rl.notAvailable}`;
       });
 
       const faithLines = textQuestions.map(([id]) => {
         const item = answers.faith[id];
-        return `${item.questionEnglish}\n${item.questionArabic}\nAnswer: ${item.answer || "N/A"}`;
+        const question = selectedText(item.questionEnglish, item.questionArabic);
+        return `${question}\n${rl.answer}: ${item.answer || rl.notAvailable}`;
       });
 
       const giftLines = Object.keys(giftSections).map(sectionKey => {
         const section = answers.gifts[sectionKey];
+        const sectionTitle = selectedText(section.sectionEnglish, section.sectionArabic);
+
         const questionLines = Object.keys(section.questions).map(questionKey => {
           const item = section.questions[questionKey];
-          return `  ${questionKey}. ${item.questionEnglish}\n  ${item.questionArabic}\n  Score: ${item.score}/5`;
+          const question = selectedText(item.questionEnglish, item.questionArabic);
+          return `  ${questionKey}. ${question}\n  ${rl.score}: ${item.score}/5`;
         });
 
-        return `${section.sectionEnglish} / ${section.sectionArabic}\nTotal Score: ${giftScores[sectionKey]}/25\n${questionLines.join("\n\n")}`;
+        return `${sectionTitle}\n${rl.totalScore}: ${giftScores[sectionKey]}/25\n${questionLines.join("\n\n")}`;
       });
 
       const ministryLines = ministryQuestions.map(([id]) => {
         const item = answers.ministry[id];
-        return `${item.areaEnglish} / ${item.areaArabic}: ${item.score}/5`;
+        const areaLabel = selectedText(item.areaEnglish, item.areaArabic);
+        return `${areaLabel}: ${item.score}/5`;
       });
 
       const visionLines = visionQuestions.map(([id]) => {
         const item = answers.vision[id];
-        return `${item.questionEnglish}\n${item.questionArabic}\nAnswer: ${item.answer || "N/A"}`;
+        const question = selectedText(item.questionEnglish, item.questionArabic);
+        return `${question}\n${rl.answer}: ${item.answer || rl.notAvailable}`;
       });
 
       return [
-        "LINC SPIRITUAL GIFTS ASSESSMENT RESPONSE",
-        "=========================================",
+        rl.title,
+        separator,
         "",
-        `Submitted At: ${submittedAt}`,
-        `Interface Language Used: ${currentLanguage}`,
+        `${rl.submittedAt}: ${submittedAt}`,
+        `${rl.interfaceLanguageUsed}: ${language}`,
         "",
-        "TRAINEE INFORMATION",
-        "-------------------",
+        rl.traineeInfo,
+        sectionSeparator,
         traineeLines.join("\n"),
         "",
-        "ASSESSMENT RESULTS",
-        "------------------",
-        `Primary Gift: ${englishResult.primaryGift} / ${arabicResult.primaryGift}`,
-        `Secondary Gift: ${englishResult.secondaryGift} / ${arabicResult.secondaryGift}`,
-        `Recommended Ministry: ${englishResult.recommendedMinistry} / ${arabicResult.recommendedMinistry}`,
+        rl.assessmentResults,
+        sectionSeparator,
+        `${rl.primaryGift}: ${langResult.primaryGift}`,
+        `${rl.secondaryGift}: ${langResult.secondaryGift}`,
+        `${rl.recommendedMinistry}: ${langResult.recommendedMinistry}`,
         "",
-        "English Summary:",
-        englishResult.summary,
+        `${rl.summary}:`,
+        langResult.summary,
         "",
-        "Arabic Summary:",
-        arabicResult.summary,
-        "",
-        "FAITH JOURNEY AND WALK WITH GOD",
-        "-------------------------------",
+        rl.faithJourney,
+        sectionSeparator,
         faithLines.join("\n\n"),
         "",
-        "PERSONAL GIFTS ASSESSMENT",
-        "-------------------------",
+        rl.personalGifts,
+        sectionSeparator,
         giftLines.join("\n\n"),
         "",
-        "MINISTRY ALIGNMENT AND EXPERIENCE",
-        "---------------------------------",
+        rl.ministryAlignment,
+        sectionSeparator,
         ministryLines.join("\n"),
         "",
-        "CALLING AND VISION QUESTIONS",
-        "----------------------------",
+        rl.callingVision,
+        sectionSeparator,
         visionLines.join("\n\n")
       ].join("\n");
     }
 
     function buildEmailBaseParams(answers, result, submittedAt, fullReport) {
+      const langResult = result[currentLanguage];
+
       return {
-        fullName: answers.trainee.fullName.value || "Unknown",
-        surveyDate: answers.trainee.surveyDate.value || "N/A",
-        age: answers.trainee.age.value || "N/A",
+        fullName: answers.trainee.fullName.value || reportLabels[currentLanguage].notAvailable,
+        surveyDate: answers.trainee.surveyDate.value || reportLabels[currentLanguage].notAvailable,
+        age: answers.trainee.age.value || reportLabels[currentLanguage].notAvailable,
         interfaceLanguageUsed: currentLanguage,
         submittedAt,
-        primaryGift: result.English.primaryGift,
-        secondaryGift: result.English.secondaryGift,
-        recommendedMinistry: result.English.recommendedMinistry,
+        primaryGift: langResult.primaryGift,
+        secondaryGift: langResult.secondaryGift,
+        recommendedMinistry: langResult.recommendedMinistry,
         fullReport
       };
     }
