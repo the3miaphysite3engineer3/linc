@@ -39,6 +39,7 @@ export interface Meeting {
   location?: string;
   meetLink?: string;
   type: 'prayer' | 'counseling' | 'service' | 'other';
+  participantIds?: string[];
   updatedAt: number;
 }
 

@@ -3,7 +3,7 @@ import { database } from '../firebase';
 import { ref, push } from 'firebase/database';
 import { GiftKeys } from '../types';
 import { motion } from 'motion/react';
-import { getStoredTokens, startGoogleAuth, sendGmailEmail } from '../services/gmail';
+import { getStoredTokens, sendGmailEmail } from '../services/gmail';
 import PageTitle from './PageTitle';
 import { ClipboardList } from 'lucide-react';
 
@@ -183,7 +183,7 @@ export default function AssessmentForm() {
     const giftTotals = calculateGiftScores();
     const ministryTotals = calculateMinistryScores();
 
-    const sortedGifts = (Object.entries(giftTotals) as [GiftKey, number][])
+    const sortedGifts = (Object.entries(giftTotals) as [string, number][])
       .sort((a, b) => b[1] - a[1]);
     const sortedMinistry = (Object.entries(ministryTotals) as [keyof MinistryScores, number][])
       .sort((a, b) => b[1] - a[1]);

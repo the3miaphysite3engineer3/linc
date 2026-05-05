@@ -36,7 +36,6 @@ export default function Calendar() {
   const [selectedParticipants, setSelectedParticipants] = useState<string[]>([]);
   const [showParticipantDropdown, setShowParticipantDropdown] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
-  const [pageLoaded, setPageLoaded] = useState(false);
 
   useEffect(() => {
     const tokens = handleOAuthCallback();
@@ -44,7 +43,6 @@ export default function Calendar() {
       storeTokens(tokens);
       setGoogleTokens(tokens);
     }
-    setPageLoaded(true);
   }, []);
 
   useEffect(() => {
@@ -165,15 +163,6 @@ export default function Calendar() {
         participantIds: selectedParticipants,
         updatedAt: Date.now(),
       };
-
-      const meetingsRef = ref(database, 'meetings/');
-      const snapshot = await onValue(meetingsRef, (snap) => {
-        const existing = snap.val();
-        if (editingMeeting) {
-          const updateRef = ref(database, `meetings/${editingMeeting.id}`);
-          // Use push for new, update for editing
-        }
-      }, { onlyOnce: true });
 
       if (editingMeeting) {
         const updateRef = ref(database, `meetings/${editingMeeting.id}`);

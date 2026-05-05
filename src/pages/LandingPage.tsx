@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'motion/react';
-import { Church, ClipboardList, Calendar as CalendarIcon, LogIn, ArrowRight, Heart, BookOpen, Users, Star } from 'lucide-react';
+import { ClipboardList, LogIn, ArrowRight, Heart, BookOpen, Users, Star } from 'lucide-react';
 
 export default function LandingPage() {
   const navigate = useNavigate();

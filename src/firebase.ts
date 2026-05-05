@@ -4,13 +4,13 @@ import { getFirestore } from "firebase/firestore";
 import { getAuth, GoogleAuthProvider, signInWithPopup } from "firebase/auth";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyD1_qSx7UJgQ1OUT1zkYX8s9fm5q_F6LLg",
-  authDomain: "churchmeeting.firebaseapp.com",
-  projectId: "churchmeeting",
-  storageBucket: "churchmeeting.firebasestorage.app",
-  messagingSenderId: "403483609083",
-  appId: "1:403483609083:web:d16933f3e9e0240038ad5e",
-  measurementId: "G-JNBPCPX3QP"
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID,
+  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID,
 };
 
 const app = initializeApp(firebaseConfig);

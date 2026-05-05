@@ -4,7 +4,6 @@ import { ref, onValue } from 'firebase/database';
 import { GiftKeys } from '../types';
 import { Search, User, Calendar as CalendarIcon, Sparkles, ScrollText, Heart, Mail, LayoutDashboard } from 'lucide-react';
 import { format } from 'date-fns';
-import { motion } from 'motion/react';
 import PageTitle from '../components/PageTitle';
 
 interface TraineeField {
