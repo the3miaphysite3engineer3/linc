@@ -151,6 +151,8 @@ export const translations: Record<string, { en: string; ar: string }> = {
 
   // AdminDashboard
   'dashboard.title': { en: 'Pastor Dashboard — Assessment Results', ar: 'لوحة تحكم الراعي — نتائج التقييم' },
+  'dashboard.tabAssessments': { en: 'Assessments', ar: 'التقييمات' },
+  'dashboard.tabSettings': { en: 'Settings', ar: 'الإعدادات' },
   'dashboard.subtitle': { en: 'Review trainee submissions and spiritual gift analysis', ar: 'مراجعة تقديمات المتدربين وتحليل المواهب الروحية' },
   'dashboard.search': { en: 'Search trainees...', ar: 'البحث عن متدربين...' },
   'dashboard.anonymous': { en: 'Anonymous', ar: 'مجهول' },
@@ -335,6 +337,14 @@ export const translations: Record<string, { en: string; ar: string }> = {
   'booking.slotAvailable': { en: 'Available', ar: 'متاح' },
   'booking.bookFor': { en: 'Book for', ar: 'حجز لـ' },
   'booking.pastDay': { en: 'Cannot book a past date. Please select a future date.', ar: 'لا يمكن حجز تاريخ سابق. يرجى اختيار تاريخ مستقبلي.' },
+
+  // Admin Manager
+  'admin.title': { en: 'Admin Management', ar: 'إدارة المسؤولين' },
+  'admin.subtitle': { en: 'Add or remove users with admin access to the dashboard.', ar: 'إضافة أو إزالة المستخدمين الذين لديهم وصول إداري إلى لوحة التحكم.' },
+  'admin.emailPlaceholder': { en: 'Enter email address...', ar: 'أدخل البريد الإلكتروني...' },
+  'admin.add': { en: 'Add Admin', ar: 'إضافة مسؤول' },
+  'admin.added': { en: 'Admin added successfully', ar: 'تمت إضافة المسؤول بنجاح' },
+  'admin.remove': { en: 'Remove', ar: 'إزالة' },
 
   // Meeting Requests (Calendar admin)
   'requests.title': { en: 'Meeting Requests', ar: 'طلبات الاجتماع' },

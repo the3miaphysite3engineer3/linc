@@ -153,6 +153,10 @@ kiroform/
        "meetingRequests": {
          ".read": true,
          ".write": true
+       },
+       "admins": {
+         ".read": "auth != null",
+         ".write": "auth != null"
        }
      }
    }

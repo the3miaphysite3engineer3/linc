@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import { database } from '../firebase';
 import { ref, onValue } from 'firebase/database';
 import { GiftKeys } from '../types';
-import { Search, User, Calendar as CalendarIcon, Sparkles, ScrollText, Heart, Mail, LayoutDashboard } from 'lucide-react';
+import { Search, User, Calendar as CalendarIcon, Sparkles, ScrollText, Heart, Mail, LayoutDashboard, Settings } from 'lucide-react';
+import AdminManager from '../components/AdminManager';
 import { format } from 'date-fns';
 import PageTitle from '../components/PageTitle';
 import { useI18n } from '../i18n';
@@ -71,6 +72,7 @@ function getTraineeValue(fields: FormRecord['fields'], id: string): string {
 
 export default function AdminDashboard() {
   const { dir, locale } = useI18n();
+  const [activeTab, setActiveTab] = useState<'assessments' | 'settings'>('assessments');
   const [assessments, setAssessments] = useState<FormRecord[]>([]);
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState<FormRecord | null>(null);
@@ -118,6 +120,26 @@ export default function AdminDashboard() {
         icon={<LayoutDashboard size={22} />}
       />
 
+      <div className="flex gap-2 mb-4">
+        <button
+          onClick={() => setActiveTab('assessments')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-sm transition-all ${
+            activeTab === 'assessments' ? 'bg-[#8B1E1E] text-white' : 'bg-white text-gray-600 hover:bg-gray-50'
+          }`}
+        >
+          <LayoutDashboard size={16} /> {t('dashboard.tabAssessments') || 'Assessments'}
+        </button>
+        <button
+          onClick={() => setActiveTab('settings')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-sm transition-all ${
+            activeTab === 'settings' ? 'bg-[#8B1E1E] text-white' : 'bg-white text-gray-600 hover:bg-gray-50'
+          }`}
+        >
+          <Settings size={16} /> {t('dashboard.tabSettings') || 'Settings'}
+        </button>
+      </div>
+
+      {activeTab === 'assessments' ? (
       <div className="flex flex-col lg:flex-row gap-8 min-h-[70vh]">
       <div className="w-full lg:w-1/3 flex flex-col gap-6">
         <div className="relative">
@@ -306,6 +328,9 @@ export default function AdminDashboard() {
         )}
       </div>
     </div>
+      ) : (
+        <AdminManager onAdminsLoaded={() => {}} />
+      )}
     </div>
   );
 }

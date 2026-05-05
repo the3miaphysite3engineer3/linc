@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import Layout from './components/Layout';
 import AssessmentForm from './components/AssessmentForm';
@@ -10,6 +10,8 @@ import TermsOfService from './pages/TermsOfService';
 import GuidePage from './pages/GuidePage';
 import BookingCalendar from './pages/BookingCalendar';
 import { auth, signInWithGoogle, signInWithEmail, signUpWithEmail } from './firebase';
+import { ref, onValue, set } from 'firebase/database';
+import { database } from './firebase';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { LogIn, ShieldCheck, Mail, Lock, AlertCircle } from 'lucide-react';
 import { handleOAuthCallback, storeTokens } from './services/gmail';
@@ -142,8 +144,10 @@ function ProtectedRoute({ children, isAdmin, loading }: { children: React.ReactN
 }
 
 function AppRoutes() {
-  const [user, loading] = useAuthState(auth);
+  const [user, authLoading] = useAuthState(auth);
   const location = useLocation();
+  const [admins, setAdmins] = useState<string[]>([]);
+  const [adminsLoaded, setAdminsLoaded] = useState(false);
 
   React.useEffect(() => {
     const tokens = handleOAuthCallback();
@@ -153,7 +157,25 @@ function AppRoutes() {
     }
   }, []);
 
-  const admins = ['georgejoseph5000@gmail.com', 'georgtawadrous@gmail.com', 'test@example.com'];
+  useEffect(() => {
+    const adminsRef = ref(database, 'admins/');
+    const unsubscribe = onValue(adminsRef, (snapshot) => {
+      const data = snapshot.val();
+      if (data) {
+        setAdmins(Object.keys(data));
+      } else {
+        const defaults = ['georgejoseph5000@gmail.com', 'georgtawadrous@gmail.com', 'test@example.com'];
+        const init: Record<string, boolean> = {};
+        defaults.forEach(e => { init[e.toLowerCase().trim()] = true; });
+        set(ref(database, 'admins/'), init);
+        setAdmins(defaults);
+      }
+      setAdminsLoaded(true);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  const appLoading = authLoading || !adminsLoaded;
   const isAdmin = user?.email && admins.includes(user.email.toLowerCase().trim());
 
   const getActiveTab = () => {
@@ -172,7 +194,7 @@ function AppRoutes() {
         path="/dashboard"
         element={
           <Layout activeTab={getActiveTab()} isAdmin={!!isAdmin}>
-            <ProtectedRoute isAdmin={!!isAdmin} loading={loading}>
+            <ProtectedRoute isAdmin={!!isAdmin} loading={appLoading}>
               <AdminDashboard />
             </ProtectedRoute>
           </Layout>
@@ -182,7 +204,7 @@ function AppRoutes() {
         path="/calendar"
         element={
           <Layout activeTab={getActiveTab()} isAdmin={!!isAdmin}>
-            <ProtectedRoute isAdmin={!!isAdmin} loading={loading}>
+            <ProtectedRoute isAdmin={!!isAdmin} loading={appLoading}>
               <Calendar />
             </ProtectedRoute>
           </Layout>
@@ -192,7 +214,7 @@ function AppRoutes() {
         path="/guide"
         element={
           <Layout activeTab={getActiveTab()} isAdmin={!!isAdmin}>
-            <ProtectedRoute isAdmin={!!isAdmin} loading={loading}>
+            <ProtectedRoute isAdmin={!!isAdmin} loading={appLoading}>
               <GuidePage />
             </ProtectedRoute>
           </Layout>

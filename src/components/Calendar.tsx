@@ -19,6 +19,7 @@ import {
 import PageTitle from './PageTitle';
 import { useI18n } from '../i18n';
 import BookMeeting from './BookMeeting';
+import AdminManager from './AdminManager';
 
 interface Participant {
   id: string;
@@ -725,6 +726,8 @@ export default function Calendar() {
       )}
 
       <BookMeeting isOpen={showBookingModal} onClose={() => setShowBookingModal(false)} />
+
+      <AdminManager onAdminsLoaded={() => {}} />
     </div>
   );
 }
