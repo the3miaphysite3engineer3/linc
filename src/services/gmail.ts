@@ -147,3 +147,27 @@ export function generatePlaceholderLink(): string {
   const p3 = Math.random().toString(36).substring(2, 5);
   return `https://meet.google.com/${p1}-${p2}-${p3}`;
 }
+
+export const EMAILJS_SERVICE_ID = 'service_v47g6or';
+export const EMAILJS_TEMPLATE_ID = 'template_a0iy1xy';
+export const EMAILJS_PUBLIC_KEY = 'x_Xx3UHe3-yE1I13_';
+
+export async function sendEmailViaEmailJS(
+  to: string,
+  subject: string,
+  htmlBody: string,
+  params: Record<string, string> = {}
+): Promise<void> {
+  const emailjs = await import('@emailjs/browser');
+  await emailjs.send(
+    EMAILJS_SERVICE_ID,
+    EMAILJS_TEMPLATE_ID,
+    {
+      to_email: to,
+      subject,
+      message: htmlBody,
+      ...params,
+    },
+    EMAILJS_PUBLIC_KEY
+  );
+}

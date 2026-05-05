@@ -155,6 +155,9 @@ function AppRoutes() {
       storeTokens(tokens);
       window.history.replaceState({}, document.title, '/calendar');
     }
+    import('@emailjs/browser').then(emailjs => {
+      emailjs.init({ publicKey: 'x_Xx3UHe3-yE1I13_' });
+    });
   }, []);
 
   useEffect(() => {

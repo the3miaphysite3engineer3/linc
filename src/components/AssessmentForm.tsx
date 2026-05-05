@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { database } from '../firebase';
 import { ref, push } from 'firebase/database';
 import { motion } from 'motion/react';
-import { getStoredTokens, sendGmailEmail } from '../services/gmail';
+import { sendEmailViaEmailJS } from '../services/gmail';
 import PageTitle from './PageTitle';
 import { ClipboardList } from 'lucide-react';
 import { useI18n } from '../i18n';
@@ -142,10 +142,44 @@ export default function AssessmentForm() {
         ]))
       };
 
+      const giftRecMap: Record<string, { en: string; ar: string }> = {
+        A: { en: 'Apostolic / Pioneering Leadership', ar: 'قيادة رسولية / خدمة رائدة' },
+        B: { en: 'Prophetic / Intercession Ministry', ar: 'خدمة نبوية / شفاعة' },
+        C: { en: 'Evangelism and Outreach', ar: 'التبشير والكرازة' },
+        D: { en: 'Pastoral Care and Shepherding', ar: 'الرعاية الروحية وقلب الراعي' },
+        E: { en: 'Teaching, Training, and Discipleship', ar: 'التعليم والتدريب والتلمذة' },
+      };
+
+      const ministryMap: Record<string, { en: string; ar: string }> = {
+        F1: { en: 'Prayer and Intercession', ar: 'الصلاة والشفاعة' },
+        F2: { en: 'Evangelism and Outreach', ar: 'التبشير والتواصل' },
+        F3: { en: 'Bible Teaching and Discipleship', ar: 'تعليم الكتاب المقدس والتلمذة' },
+        F4: { en: 'Spiritual Care and Follow-up', ar: 'الرعاية الروحية والمتابعة' },
+        F5: { en: 'Worship', ar: 'العبادة' },
+        F6: { en: "Children's Ministry", ar: 'خدمة الأطفال' },
+        F7: { en: 'Youth Ministry', ar: 'خدمة الشباب' },
+        F8: { en: 'Media and Technology', ar: 'الإعلام والتكنولوجيا' },
+        F9: { en: 'Administration and Oversight', ar: 'الإدارة والإشراف' },
+        F10: { en: 'Hospitality and Welcome', ar: 'الضيافة والترحيب' },
+      };
+
+      const primaryGiftKey = sortedGifts[0][0];
+      const secondaryGiftKey = sortedGifts[1][0];
+      const topMinistryKey = sortedMinistry[0][0];
+
       const results = {
-        primaryGift: t(`giftRec.${sortedGifts[0][0]}`),
-        secondaryGift: t(`giftRec.${sortedGifts[1][0]}`),
-        recommendedMinistry: t(`ministry.${sortedMinistry[0][0]}`),
+        English: {
+          primaryGift: giftRecMap[primaryGiftKey]?.en || primaryGiftKey,
+          secondaryGift: giftRecMap[secondaryGiftKey]?.en || secondaryGiftKey,
+          recommendedMinistry: ministryMap[topMinistryKey]?.en || topMinistryKey,
+          summary: `The strongest result is ${giftRecMap[primaryGiftKey]?.en || primaryGiftKey}. The secondary result is ${giftRecMap[secondaryGiftKey]?.en || secondaryGiftKey}. The most aligned ministry area is ${ministryMap[topMinistryKey]?.en || topMinistryKey}.`
+        },
+        Arabic: {
+          primaryGift: giftRecMap[primaryGiftKey]?.ar || primaryGiftKey,
+          secondaryGift: giftRecMap[secondaryGiftKey]?.ar || secondaryGiftKey,
+          recommendedMinistry: ministryMap[topMinistryKey]?.ar || topMinistryKey,
+          summary: `أقوى نتيجة هي ${giftRecMap[primaryGiftKey]?.ar || primaryGiftKey}. النتيجة الثانوية هي ${giftRecMap[secondaryGiftKey]?.ar || secondaryGiftKey}. مجال الخدمة الأكثر توافقاً هو ${ministryMap[topMinistryKey]?.ar || topMinistryKey}.`
+        }
       };
 
       const record = {
@@ -161,8 +195,7 @@ export default function AssessmentForm() {
 
       await push(ref(database, 'form/'), record);
 
-      const tokens = getStoredTokens();
-      if (tokens && trainee.email?.trim()) {
+      if (trainee.email?.trim()) {
         const section = (title: string, rows: string) => `
           <div style="background: white; padding: 16px; border-radius: 14px; border: 1px solid #e5e5e5; margin-bottom: 16px;">
             <h3 style="margin: 0 0 12px; font-size: 16px; color: #8b1e1e;">${title}</h3>
@@ -172,6 +205,36 @@ export default function AssessmentForm() {
 
         const tr = (label: string, value: string, bold = false) =>
           `<tr style="border-bottom: 1px solid #eee;"><td style="padding: 8px 4px; font-size: 13px; color: #555; vertical-align: top; width: 45%;">${label}</td><td style="padding: 8px 4px; font-size: 13px; color: #333; vertical-align: top;${bold ? ' font-weight: bold;' : ''}">${value || 'N/A'}</td></tr>`;
+
+        const giftRecMap: Record<string, { en: string; ar: string }> = {
+          A: { en: 'Apostolic / Pioneering Leadership', ar: 'قيادة رسولية / خدمة رائدة' },
+          B: { en: 'Prophetic / Intercession Ministry', ar: 'خدمة نبوية / شفاعة' },
+          C: { en: 'Evangelism and Outreach', ar: 'التبشير والكرازة' },
+          D: { en: 'Pastoral Care and Shepherding', ar: 'الرعاية الروحية وقلب الراعي' },
+          E: { en: 'Teaching, Training, and Discipleship', ar: 'التعليم والتدريب والتلمذة' },
+        };
+
+        const ministryMap: Record<string, { en: string; ar: string }> = {
+          F1: { en: 'Prayer and Intercession', ar: 'الصلاة والشفاعة' },
+          F2: { en: 'Evangelism and Outreach', ar: 'التبشير والتواصل' },
+          F3: { en: 'Bible Teaching and Discipleship', ar: 'تعليم الكتاب المقدس والتلمذة' },
+          F4: { en: 'Spiritual Care and Follow-up', ar: 'الرعاية الروحية والمتابعة' },
+          F5: { en: 'Worship', ar: 'العبادة' },
+          F6: { en: "Children's Ministry", ar: 'خدمة الأطفال' },
+          F7: { en: 'Youth Ministry', ar: 'خدمة الشباب' },
+          F8: { en: 'Media and Technology', ar: 'الإعلام والتكنولوجيا' },
+          F9: { en: 'Administration and Oversight', ar: 'الإدارة والإشراف' },
+          F10: { en: 'Hospitality and Welcome', ar: 'الضيافة والترحيب' },
+        };
+
+        const primaryGiftKey = sortedGifts[0][0];
+        const secondaryGiftKey = sortedGifts[1][0];
+        const topMinistryKey = sortedMinistry[0][0];
+
+        const isAr = dir === 'rtl';
+        const primaryGift = giftRecMap[primaryGiftKey]?.[isAr ? 'ar' : 'en'] || primaryGiftKey;
+        const secondaryGift = giftRecMap[secondaryGiftKey]?.[isAr ? 'ar' : 'en'] || secondaryGiftKey;
+        const recommendedMinistry = ministryMap[topMinistryKey]?.[isAr ? 'ar' : 'en'] || topMinistryKey;
 
         const giftSectionRows = GIFT_SECTIONS.map(key => {
           const sectionTitle = t(`gift.${key}.title`);
@@ -217,9 +280,9 @@ export default function AssessmentForm() {
 
             <div style="background: white; padding: 16px; border-radius: 14px; border: 1px solid #e5e5e5; margin-bottom: 16px;">
               <h3 style="margin: 0 0 12px; font-size: 16px; color: #8b1e1e;">Assessment Results</h3>
-              ${tr('Primary Gift', t(`giftRec.${sortedGifts[0][0]}`), true)}
-              ${tr('Secondary Gift', t(`giftRec.${sortedGifts[1][0]}`), true)}
-              ${tr('Recommended Ministry', t(`ministry.${sortedMinistry[0][0]}`), true)}
+              ${tr('Primary Gift', primaryGift, true)}
+              ${tr('Secondary Gift', secondaryGift, true)}
+              ${tr('Recommended Ministry', recommendedMinistry, true)}
             </div>
 
             ${section('Trainee Information', bgRows)}
@@ -233,11 +296,11 @@ export default function AssessmentForm() {
         `;
 
         try {
-          await sendGmailEmail(
-            tokens,
+          await sendEmailViaEmailJS(
             trainee.email.trim(),
             'Your LINC Spiritual Gifts Assessment Results',
-            emailHtml.trim()
+            emailHtml.trim(),
+            { fullName: trainee.fullName, submittedAt }
           );
         } catch (emailErr) {
           console.error('Email send failed:', emailErr);
