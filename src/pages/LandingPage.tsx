@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'motion/react';
-import { ClipboardList, LogIn, ArrowRight, Heart, BookOpen, Users, Star } from 'lucide-react';
+import { ClipboardList, LogIn, ArrowRight, Heart, BookOpen, Users, Star, Globe } from 'lucide-react';
 import { useI18n } from '../i18n';
 
 export default function LandingPage() {
   const navigate = useNavigate();
-  const { t, dir, locale } = useI18n();
+  const { t, dir, locale, setLocale } = useI18n();
   const [scrollY, setScrollY] = useState(0);
 
   useEffect(() => {
@@ -32,6 +32,14 @@ export default function LandingPage() {
   return (
     <div className="min-h-screen" dir={dir} style={{ fontFamily: 'Arial, sans-serif' }}>
       <section className="relative min-h-[90vh] flex items-center justify-center overflow-hidden bg-[#f5f4f0]">
+        {/* Language Toggle */}
+        <button
+          onClick={() => setLocale(locale === 'en' ? 'ar' : 'en')}
+          className={`absolute top-6 ${dir === 'rtl' ? 'left-6' : 'right-6'} z-10 inline-flex items-center gap-2 px-4 py-2 bg-white/80 backdrop-blur-sm border border-[rgba(139,30,30,0.15)] rounded-full text-sm font-bold text-[#8b1e1e] shadow-sm transition-all hover:bg-white hover:shadow-md`}
+        >
+          <Globe size={16} />
+          {locale === 'en' ? 'العربية' : 'English'}
+        </button>
         <div
           className="absolute inset-0 opacity-[0.06]"
           style={{
