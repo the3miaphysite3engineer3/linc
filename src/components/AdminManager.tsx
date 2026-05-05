@@ -17,13 +17,13 @@ export default function AdminManager({ onAdminsLoaded }: { onAdminsLoaded: (emai
     const unsubscribe = onValue(adminsRef, (snapshot) => {
       const data = snapshot.val();
       if (data) {
-        const emails = Object.keys(data);
+        const emails = Object.keys(data).map(k => k.replace(/,/g, '.'));
         setAdmins(emails);
         onAdminsLoaded(emails);
       } else {
         const defaults = ['georgejoseph5000@gmail.com', 'georgtawadrous@gmail.com', 'test@example.com'];
         const init: Record<string, boolean> = {};
-        defaults.forEach(e => { init[e.toLowerCase().trim()] = true; });
+        defaults.forEach(e => { init[e.toLowerCase().trim().replace(/\./g, ',')] = true; });
         set(ref(database, 'admins/'), init);
         setAdmins(defaults);
         onAdminsLoaded(defaults);
@@ -36,7 +36,7 @@ export default function AdminManager({ onAdminsLoaded }: { onAdminsLoaded: (emai
     if (!newEmail || !newEmail.includes('@')) return;
     setLoading(true);
     try {
-      const key = newEmail.toLowerCase().trim();
+      const key = newEmail.toLowerCase().trim().replace(/\./g, ',');
       await set(ref(database, `admins/${key}`), true);
       setNewEmail('');
       setSuccess(t('admin.added'));
@@ -51,7 +51,7 @@ export default function AdminManager({ onAdminsLoaded }: { onAdminsLoaded: (emai
   const handleRemove = async (email: string) => {
     if (admins.length <= 1) return;
     try {
-      await remove(ref(database, `admins/${email.toLowerCase().trim()}`));
+      await remove(ref(database, `admins/${email.toLowerCase().trim().replace(/\./g, ',')}`));
     } catch (err) {
       console.error(err);
     }

@@ -162,11 +162,11 @@ function AppRoutes() {
     const unsubscribe = onValue(adminsRef, (snapshot) => {
       const data = snapshot.val();
       if (data) {
-        setAdmins(Object.keys(data));
+        setAdmins(Object.keys(data).map(k => k.replace(/,/g, '.')));
       } else {
         const defaults = ['georgejoseph5000@gmail.com', 'georgtawadrous@gmail.com', 'test@example.com'];
         const init: Record<string, boolean> = {};
-        defaults.forEach(e => { init[e.toLowerCase().trim()] = true; });
+        defaults.forEach(e => { init[e.toLowerCase().trim().replace(/\./g, ',')] = true; });
         set(ref(database, 'admins/'), init);
         setAdmins(defaults);
       }
