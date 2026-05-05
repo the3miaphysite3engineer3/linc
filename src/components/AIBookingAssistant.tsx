@@ -2,11 +2,10 @@ import { useState, useEffect, useRef } from 'react';
 import { motion } from 'motion/react';
 import { X, Send, Sparkles, Bot, User } from 'lucide-react';
 import { format } from 'date-fns';
-import { GoogleGenAI } from '@google/genai';
 import { database } from '../firebase';
 import { ref, push, onValue } from 'firebase/database';
 
-const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
+const OPENROUTER_API_KEY = import.meta.env.VITE_OPENROUTER_API_KEY;
 
 interface ChatMessage {
   role: 'user' | 'assistant' | 'system';
@@ -54,15 +53,8 @@ export default function AIBookingAssistant({ isOpen, onClose, preSelectedDate }:
   });
   const [meetings, setMeetings] = useState<Meeting[]>([]);
   const [unavailability, setUnavailability] = useState<Unavailability[]>([]);
-  const [ai, setAi] = useState<GoogleGenAI | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    if (GEMINI_API_KEY) {
-      setAi(new GoogleGenAI({ apiKey: GEMINI_API_KEY }));
-    }
-  }, []);
 
   useEffect(() => {
     const meetingsRef = ref(database, 'meetings/');
@@ -164,7 +156,7 @@ export default function AIBookingAssistant({ isOpen, onClose, preSelectedDate }:
   };
 
   const getAIResponse = async (userMessage: string): Promise<string> => {
-    if (!ai) {
+    if (!OPENROUTER_API_KEY) {
       return getDefaultResponse(userMessage);
     }
 
@@ -182,19 +174,27 @@ Be friendly, concise, and helpful. Guide users through the booking process natur
 Keep responses under 3 sentences when possible. Use simple, warm language.`;
 
     try {
-      const response = await ai.models.generateContent({
-        model: 'gemini-3.1-flash-lite-preview',
-        contents: [
-          { role: 'system', parts: [{ text: systemPrompt }] },
-          { role: 'user', parts: [{ text: userMessage }] },
-        ],
-        config: {
-          temperature: 0.7,
-          maxOutputTokens: 150,
+      const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+          'Content-Type': 'application/json',
         },
+        body: JSON.stringify({
+          model: 'nvidia/nemotron-3-super-120b-a12b:free',
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userMessage },
+          ],
+        }),
       });
 
-      return response.text || getDefaultResponse(userMessage);
+      if (!response.ok) {
+        throw new Error('OpenRouter API call failed');
+      }
+
+      const result = await response.json();
+      return result.choices?.[0]?.message?.content || getDefaultResponse(userMessage);
     } catch (err) {
       console.error('AI response failed:', err);
       return getDefaultResponse(userMessage);

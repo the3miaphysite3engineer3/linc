@@ -19,7 +19,6 @@ import {
 import PageTitle from './PageTitle';
 import { useI18n } from '../i18n';
 import BookMeeting from './BookMeeting';
-import { GoogleGenAI } from '@google/genai';
 
 interface Participant {
   id: string;
@@ -342,13 +341,11 @@ export default function Calendar() {
     setAiLoading(true);
 
     try {
-      const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
-      if (!GEMINI_API_KEY) {
-        setAiMessages(prev => [...prev, { role: 'assistant', content: 'AI is not configured. Please add VITE_GEMINI_API_KEY to your .env file.', timestamp: new Date() }]);
+      const OPENROUTER_API_KEY = import.meta.env.VITE_OPENROUTER_API_KEY;
+      if (!OPENROUTER_API_KEY) {
+        setAiMessages(prev => [...prev, { role: 'assistant', content: 'AI is not configured. Please add VITE_OPENROUTER_API_KEY to your .env file.', timestamp: new Date() }]);
         return;
       }
-
-      const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
       
       const calendarContext = {
         meetings: meetings.map(m => ({ title: m.title, date: m.date, startTime: m.startTime, endTime: m.endTime })),
@@ -371,19 +368,27 @@ When the user wants to reject a request, respond with: ACTION:REJECT_REQUEST|req
 
 Otherwise, provide a helpful response about their calendar.`;
 
-      const response = await ai.models.generateContent({
-        model: 'gemini-3.1-flash-lite-preview',
-        contents: [
-          { role: 'system', parts: [{ text: systemPrompt }] },
-          { role: 'user', parts: [{ text: userMessage }] },
-        ],
-        config: {
-          temperature: 0.7,
-          maxOutputTokens: 300,
+      const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+          'Content-Type': 'application/json',
         },
+        body: JSON.stringify({
+          model: 'nvidia/nemotron-3-super-120b-a12b:free',
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userMessage },
+          ],
+        }),
       });
 
-      const aiResponse = response.text || 'I could not process that request.';
+      if (!response.ok) {
+        throw new Error('OpenRouter API call failed');
+      }
+
+      const result = await response.json();
+      const aiResponse = result.choices?.[0]?.message?.content || 'I could not process that request.';
 
       if (aiResponse.startsWith('ACTION:')) {
         const [action, ...params] = aiResponse.split('|');

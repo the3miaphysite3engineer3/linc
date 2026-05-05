@@ -1,8 +1,5 @@
-import { GoogleGenAI, Type } from "@google/genai";
-
-const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
-
-const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
+const OPENROUTER_API_KEY = import.meta.env.VITE_OPENROUTER_API_KEY;
+const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
 
 export interface CalendarContext {
   meetings: Array<{
@@ -24,6 +21,30 @@ export interface AISuggestion {
   suggestedStartTime: string;
   suggestedEndTime: string;
   reason: string;
+}
+
+async function callOpenRouter(messages: { role: string; content: string }[], systemPrompt: string): Promise<string> {
+  const systemMessage = { role: 'system', content: systemPrompt };
+  
+  const response = await fetch(OPENROUTER_URL, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: 'nvidia/nemotron-3-super-120b-a12b:free',
+      messages: [systemMessage, ...messages],
+    }),
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error?.message || 'OpenRouter API call failed');
+  }
+
+  const result = await response.json();
+  return result.choices?.[0]?.message?.content || '';
 }
 
 export async function findAvailableSlot(
@@ -54,46 +75,29 @@ Requested duration: ${durationMinutes} minutes
 ${preferredDate ? `Preferred date: ${preferredDate}` : ''}
 ${preferredTime ? `Preferred time: ${preferredTime}` : ''}
 
-Find the best available slot.`;
+Find the best available slot. Return ONLY valid JSON.`;
 
-  const response = await ai.models.generateContent({
-    model: "gemini-3.1-flash-lite-preview",
-    contents: [{ role: "user", parts: [{ text: userPrompt }] }],
-    config: {
-      systemInstruction: systemPrompt,
-      responseMimeType: "application/json",
-      responseSchema: {
-        type: Type.OBJECT,
-        properties: {
-          suggestedDate: { type: Type.STRING },
-          suggestedStartTime: { type: Type.STRING },
-          suggestedEndTime: { type: Type.STRING },
-          reason: { type: Type.STRING },
-        },
-        required: ["suggestedDate", "suggestedStartTime", "suggestedEndTime", "reason"],
-      },
-    },
-  });
-
-  return JSON.parse(response.text || '{}') as AISuggestion;
+  const text = await callOpenRouter([{ role: 'user', content: userPrompt }], systemPrompt);
+  
+  try {
+    return JSON.parse(text) as AISuggestion;
+  } catch {
+    return { suggestedDate: '', suggestedStartTime: '', suggestedEndTime: '', reason: 'Could not find available slot' };
+  }
 }
 
 export async function summarizeSchedule(
   context: CalendarContext,
   dateRange: { start: string; end: string }
 ): Promise<string> {
-  const response = await ai.models.generateContent({
-    model: "gemini-3.1-flash-lite-preview",
-    contents: [{ role: "user", parts: [{ text: `Summarize the pastor's schedule from ${dateRange.start} to ${dateRange.end}. List all meetings and any unavailability. Highlight any conflicts or busy periods.
+  const systemPrompt = 'You are a helpful assistant that summarizes calendar schedules for church pastors. Be concise and clear.';
+  
+  const userPrompt = `Summarize the pastor's schedule from ${dateRange.start} to ${dateRange.end}. List all meetings and any unavailability. Highlight any conflicts or busy periods.
 
 Meetings: ${JSON.stringify(context.meetings, null, 2)}
-Unavailability: ${JSON.stringify(context.unavailability, null, 2)}` }] }],
-    config: {
-      systemInstruction: "You are a helpful assistant that summarizes calendar schedules for church pastors. Be concise and clear.",
-    },
-  });
+Unavailability: ${JSON.stringify(context.unavailability, null, 2)}`;
 
-  return response.text || 'No schedule summary available.';
+  return await callOpenRouter([{ role: 'user', content: userPrompt }], systemPrompt) || 'No schedule summary available.';
 }
 
 export async function checkConflict(
@@ -102,9 +106,9 @@ export async function checkConflict(
   startTime: string,
   endTime: string
 ): Promise<{ hasConflict: boolean; conflictDetails?: string }> {
-  const response = await ai.models.generateContent({
-    model: "gemini-3.1-flash-lite-preview",
-    contents: [{ role: "user", parts: [{ text: `Check if there's a conflict for a meeting on ${date} from ${startTime || '00:00'} to ${endTime || '23:59'}.
+  const systemPrompt = 'You are a calendar conflict checker. Return a JSON object with: hasConflict (boolean), conflictDetails (string, only if there\'s a conflict).';
+  
+  const userPrompt = `Check if there's a conflict for a meeting on ${date} from ${startTime || '00:00'} to ${endTime || '23:59'}.
 
 Current schedule:
 Meetings: ${JSON.stringify(context.meetings, null, 2)}
@@ -113,20 +117,15 @@ Unavailability: ${JSON.stringify(context.unavailability.map(u => ({
   startTime: u.startTime || '00:00',
   endTime: u.endTime || '23:59',
   allDay: u.allDay || false,
-})), null, 2)}` }] }],
-    config: {
-      systemInstruction: "You are a calendar conflict checker. Return a JSON object with: hasConflict (boolean), conflictDetails (string, only if there's a conflict).",
-      responseMimeType: "application/json",
-      responseSchema: {
-        type: Type.OBJECT,
-        properties: {
-          hasConflict: { type: Type.BOOLEAN },
-          conflictDetails: { type: Type.STRING },
-        },
-        required: ["hasConflict"],
-      },
-    },
-  });
+})), null, 2)}
 
-  return JSON.parse(response.text || '{}') as { hasConflict: boolean; conflictDetails?: string };
+Return ONLY valid JSON.`;
+
+  const text = await callOpenRouter([{ role: 'user', content: userPrompt }], systemPrompt);
+  
+  try {
+    return JSON.parse(text) as { hasConflict: boolean; conflictDetails?: string };
+  } catch {
+    return { hasConflict: false };
+  }
 }
