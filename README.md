@@ -173,7 +173,7 @@ Edit the `admins` array in `src/App.tsx` to add or remove admin users.
 | `npm run preview` | Preview production build locally |
 | `npm run lint` | Run ESLint |
 
-## License
+## License 
 
 Private — LINC Ministries
 
