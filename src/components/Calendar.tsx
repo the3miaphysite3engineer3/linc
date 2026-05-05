@@ -372,7 +372,7 @@ When the user wants to reject a request, respond with: ACTION:REJECT_REQUEST|req
 Otherwise, provide a helpful response about their calendar.`;
 
       const response = await ai.models.generateContent({
-        model: 'gemini-2.0-flash',
+        model: 'gemini-3.1-flash-lite-preview',
         contents: [
           { role: 'system', parts: [{ text: systemPrompt }] },
           { role: 'user', parts: [{ text: userMessage }] },

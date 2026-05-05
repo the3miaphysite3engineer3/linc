@@ -57,7 +57,7 @@ ${preferredTime ? `Preferred time: ${preferredTime}` : ''}
 Find the best available slot.`;
 
   const response = await ai.models.generateContent({
-    model: "gemini-2.0-flash",
+    model: "gemini-3.1-flash-lite-preview",
     contents: [{ role: "user", parts: [{ text: userPrompt }] }],
     config: {
       systemInstruction: systemPrompt,
@@ -83,7 +83,7 @@ export async function summarizeSchedule(
   dateRange: { start: string; end: string }
 ): Promise<string> {
   const response = await ai.models.generateContent({
-    model: "gemini-2.0-flash",
+    model: "gemini-3.1-flash-lite-preview",
     contents: [{ role: "user", parts: [{ text: `Summarize the pastor's schedule from ${dateRange.start} to ${dateRange.end}. List all meetings and any unavailability. Highlight any conflicts or busy periods.
 
 Meetings: ${JSON.stringify(context.meetings, null, 2)}
@@ -103,7 +103,7 @@ export async function checkConflict(
   endTime: string
 ): Promise<{ hasConflict: boolean; conflictDetails?: string }> {
   const response = await ai.models.generateContent({
-    model: "gemini-2.0-flash",
+    model: "gemini-3.1-flash-lite-preview",
     contents: [{ role: "user", parts: [{ text: `Check if there's a conflict for a meeting on ${date} from ${startTime || '00:00'} to ${endTime || '23:59'}.
 
 Current schedule:
