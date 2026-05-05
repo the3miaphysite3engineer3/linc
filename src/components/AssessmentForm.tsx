@@ -163,15 +163,32 @@ export default function AssessmentForm() {
 
       const tokens = getStoredTokens();
       if (tokens && trainee.email?.trim()) {
-        const faithRows = FAITH_IDS.map(qId =>
-          `<tr style="border-bottom: 1px solid #eee;"><td style="padding: 8px 4px; font-size: 13px; color: #555; width: 50%;">${t(`faith.${qId}`)}</td><td style="padding: 8px 4px; font-size: 13px; color: #333;">${faithAnswers[qId] || ''}</td></tr>`
-        ).join('');
+        const section = (title: string, rows: string) => `
+          <div style="background: white; padding: 16px; border-radius: 14px; border: 1px solid #e5e5e5; margin-bottom: 16px;">
+            <h3 style="margin: 0 0 12px; font-size: 16px; color: #8b1e1e;">${title}</h3>
+            <table style="width: 100%; border-collapse: collapse;">${rows}</table>
+          </div>
+        `;
 
-        const visionRows = VISION_IDS.map(qId =>
-          `<tr style="border-bottom: 1px solid #eee;"><td style="padding: 8px 4px; font-size: 13px; color: #555; width: 50%;">${t(`vision.${qId}`)}</td><td style="padding: 8px 4px; font-size: 13px; color: #333;">${visionAnswers[qId] || ''}</td></tr>`
+        const tr = (label: string, value: string, bold = false) =>
+          `<tr style="border-bottom: 1px solid #eee;"><td style="padding: 8px 4px; font-size: 13px; color: #555; vertical-align: top; width: 45%;">${label}</td><td style="padding: 8px 4px; font-size: 13px; color: #333; vertical-align: top;${bold ? ' font-weight: bold;' : ''}">${value || 'N/A'}</td></tr>`;
+
+        const giftSectionRows = GIFT_SECTIONS.map(key => {
+          const sectionTitle = t(`gift.${key}.title`);
+          const questions = GIFT_QUESTIONS[key].map(qId =>
+            tr(`${qId}. ${t(`gift.${qId}`)}`, `${giftScores[qId] || 0} / 5`)
+          ).join('');
+          const totalRow = `<tr style="border-bottom: 2px solid #8b1e1e;"><td style="padding: 8px 4px; font-size: 13px; color: #8b1e1e; font-weight: bold;" colspan="2">${sectionTitle} — Total: ${giftTotals[key] || 0} / 25</td></tr>`;
+          return totalRow + questions;
+        }).join('');
+
+        const ministryRows = MINISTRY_IDS.map(mId =>
+          tr(t(`ministry.${mId}`), `${ministryTotals[mId as keyof typeof ministryTotals] || 0} / 5`)
         ).join('');
 
         const backgroundFields = [
+          { label: t('trainee.fullName'), value: trainee.fullName },
+          { label: t('trainee.surveyDate'), value: trainee.surveyDate },
           { label: t('trainee.age'), value: trainee.age },
           { label: t('trainee.attendance'), value: trainee.attendance },
           { label: t('trainee.currentService'), value: trainee.currentService },
@@ -180,12 +197,14 @@ export default function AssessmentForm() {
           { label: t('trainee.englishFluency'), value: trainee.englishFluency },
           { label: t('trainee.otherLanguages'), value: trainee.otherLanguages },
         ];
-        const bgRows = backgroundFields.map(f =>
-          `<tr style="border-bottom: 1px solid #eee;"><td style="padding: 6px 4px; font-size: 13px; color: #555; width: 40%;">${f.label}</td><td style="padding: 6px 4px; font-size: 13px; color: #333;">${f.value || 'N/A'}</td></tr>`
+        const bgRows = backgroundFields.map(f => tr(f.label, f.value)).join('');
+
+        const faithRows = FAITH_IDS.map(qId =>
+          tr(t(`faith.${qId}`), faithAnswers[qId] || '')
         ).join('');
 
-        const giftRows = (sortedGifts as [string, number][]).map(([key, score]) =>
-          `<tr style="border-bottom: 1px solid #eee;"><td style="padding: 6px 4px; font-size: 13px; color: #555; width: 50%;">${t(`giftRec.${key}`)}</td><td style="padding: 6px 4px; font-size: 13px; color: #333; font-weight: bold;">${score} / 25</td></tr>`
+        const visionRows = VISION_IDS.map(vId =>
+          tr(t(`vision.${vId}`), visionAnswers[vId] || '')
         ).join('');
 
         const emailHtml = `
@@ -198,30 +217,16 @@ export default function AssessmentForm() {
 
             <div style="background: white; padding: 16px; border-radius: 14px; border: 1px solid #e5e5e5; margin-bottom: 16px;">
               <h3 style="margin: 0 0 12px; font-size: 16px; color: #8b1e1e;">Assessment Results</h3>
-              <p style="margin: 4px 0; font-size: 14px;"><strong>Primary Gift:</strong> ${t(`giftRec.${sortedGifts[0][0]}`)}</p>
-              <p style="margin: 4px 0; font-size: 14px;"><strong>Secondary Gift:</strong> ${t(`giftRec.${sortedGifts[1][0]}`)}</p>
-              <p style="margin: 4px 0; font-size: 14px;"><strong>Recommended Ministry:</strong> ${t(`ministry.${sortedMinistry[0][0]}`)}</p>
+              ${tr('Primary Gift', t(`giftRec.${sortedGifts[0][0]}`), true)}
+              ${tr('Secondary Gift', t(`giftRec.${sortedGifts[1][0]}`), true)}
+              ${tr('Recommended Ministry', t(`ministry.${sortedMinistry[0][0]}`), true)}
             </div>
 
-            <div style="background: white; padding: 16px; border-radius: 14px; border: 1px solid #e5e5e5; margin-bottom: 16px;">
-              <h3 style="margin: 0 0 12px; font-size: 16px; color: #8b1e1e;">Spiritual Gift Scores</h3>
-              <table style="width: 100%; border-collapse: collapse;">${giftRows}</table>
-            </div>
-
-            <div style="background: white; padding: 16px; border-radius: 14px; border: 1px solid #e5e5e5; margin-bottom: 16px;">
-              <h3 style="margin: 0 0 12px; font-size: 16px; color: #8b1e1e;">Background Information</h3>
-              <table style="width: 100%; border-collapse: collapse;">${bgRows}</table>
-            </div>
-
-            <div style="background: white; padding: 16px; border-radius: 14px; border: 1px solid #e5e5e5; margin-bottom: 16px;">
-              <h3 style="margin: 0 0 12px; font-size: 16px; color: #8b1e1e;">Faith Journey</h3>
-              <table style="width: 100%; border-collapse: collapse;">${faithRows}</table>
-            </div>
-
-            <div style="background: white; padding: 16px; border-radius: 14px; border: 1px solid #e5e5e5; margin-bottom: 16px;">
-              <h3 style="margin: 0 0 12px; font-size: 16px; color: #8b1e1e;">Vision & Calling</h3>
-              <table style="width: 100%; border-collapse: collapse;">${visionRows}</table>
-            </div>
+            ${section('Trainee Information', bgRows)}
+            ${section('Spiritual Gift Scores', giftSectionRows)}
+            ${section('Ministry Alignment', ministryRows)}
+            ${section('Faith Journey & Walk with God', faithRows)}
+            ${section('Calling & Vision', visionRows)}
 
             <p style="color: #999; font-size: 12px; margin-top: 24px;">This assessment was submitted on ${submittedAt}.</p>
           </div>
