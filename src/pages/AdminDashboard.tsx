@@ -98,7 +98,7 @@ export default function AdminDashboard() {
   const filtered = assessments.filter(a => {
     const name = getTraineeValue(a.fields, 'fullName').toLowerCase();
     return name.includes(search.toLowerCase());
-  });
+  }).filter(a => a.results);
 
   const formatDate = (timestamp: number) => {
     try {
@@ -156,7 +156,7 @@ export default function AdminDashboard() {
         <div className="flex flex-col gap-3 max-h-[600px] overflow-y-auto pr-2">
           {filtered.map(a => {
             const name = getTraineeValue(a.fields, 'fullName') || t('dashboard.anonymous');
-            const result = a.results[a.interfaceLanguageUsed === 'Arabic' ? 'Arabic' : 'English'];
+            const result = a.results?.[a.interfaceLanguageUsed === 'Arabic' ? 'Arabic' : 'English'];
             return (
               <button
                 key={a.id}
@@ -174,7 +174,7 @@ export default function AdminDashboard() {
                   </span>
                 </div>
                 <div className="flex items-center gap-1 text-[10px] text-gray-500 uppercase tracking-widest">
-                  <span className="font-bold text-[#8B1E1E]">{result.primaryGift || t('dashboard.noResult')}</span>
+                  <span className="font-bold text-[#8B1E1E]">{result?.primaryGift || t('dashboard.noResult')}</span>
                 </div>
               </button>
             );
@@ -216,11 +216,11 @@ export default function AdminDashboard() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-8">
                 <div className="bg-white/10 p-4 rounded-2xl border border-white/20">
                   <p className="text-[10px] uppercase tracking-widest opacity-60 mb-2">{t('dashboard.primaryGift')}</p>
-                  <p className="text-lg font-bold">{selected.results[lang].primaryGift || 'N/A'}</p>
+                  <p className="text-lg font-bold">{selected.results?.[lang]?.primaryGift || 'N/A'}</p>
                 </div>
                 <div className="bg-white/10 p-4 rounded-2xl border border-white/20">
                   <p className="text-[10px] uppercase tracking-widest opacity-60 mb-2">{t('dashboard.secondaryGift')}</p>
-                  <p className="text-lg font-bold">{selected.results[lang].secondaryGift || 'N/A'}</p>
+                  <p className="text-lg font-bold">{selected.results?.[lang]?.secondaryGift || 'N/A'}</p>
                 </div>
               </div>
             </div>
@@ -234,7 +234,7 @@ export default function AdminDashboard() {
                 <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
                   {GiftKeys.map(key => (
                     <div key={key} className="p-4 bg-stone-50 rounded-2xl text-center border border-gray-100">
-                      <div className="text-lg font-bold text-[#8B1E1E]">{selected.scores.gifts[key] || 0}</div>
+                      <div className="text-lg font-bold text-[#8B1E1E]">{selected.scores?.gifts?.[key] || 0}</div>
                       <div className="text-[8px] uppercase tracking-widest font-black text-gray-400 mt-1">
                         {t('dashboard.section')} {key} / 25
                       </div>
@@ -249,9 +249,9 @@ export default function AdminDashboard() {
                   {t('dashboard.ministryAlignment')}
                 </h3>
                 <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-                  {Object.entries(selected.fields.ministry).map(([key, val]) => (
+                  {Object.entries(selected.fields?.ministry || {}).map(([key, val]) => (
                     <div key={key} className="p-4 bg-stone-50 rounded-2xl text-center border border-gray-100">
-                      <div className="text-lg font-bold text-[#8B1E1E]">{val.score}</div>
+                      <div className="text-lg font-bold text-[#8B1E1E]">{(val as any).score}</div>
                       <div className="text-[8px] uppercase tracking-widest font-black text-gray-400 mt-1">
                         {key} / 5
                       </div>
