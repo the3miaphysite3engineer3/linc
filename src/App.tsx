@@ -174,14 +174,14 @@ function AppRoutes() {
         Object.keys(data).forEach(k => {
           const email = k.replace(/,/g, '.').toLowerCase().trim();
           const raw = data[k];
-          parsed[email] = raw === 'superadmin' ? 'superadmin' : 'pastor';
+          const role: Role = raw === 'superadmin' ? 'superadmin' : 'pastor';
+          parsed[email] = role;
         });
         setAdmins(parsed);
       } else {
         const defaults: Record<string, Role> = {};
         defaults['georgejoseph5000@gmail.com'] = 'superadmin';
         defaults['georgtawadrous@gmail.com'] = 'pastor';
-        defaults['georgetawadrous@gmail.com'] = 'pastor';
         const init: Record<string, string> = {};
         Object.entries(defaults).forEach(([e, r]) => { init[e.toLowerCase().trim().replace(/\./g, ',')] = r; });
         set(ref(database, 'admins/'), init);
@@ -195,8 +195,7 @@ function AppRoutes() {
   const appLoading = authLoading || !adminsLoaded;
   const userEmail = user?.email?.toLowerCase().trim() || '';
   const adminRole = admins[userEmail];
-  console.log('Auth user:', userEmail, 'Admins in DB:', admins, 'Role:', adminRole);
-  const isPastor = (adminRole === 'pastor');
+  const isPastor = !!adminRole;
   const isSuperAdmin = adminRole === 'superadmin';
 
   const getActiveTab = () => {

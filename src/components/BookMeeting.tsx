@@ -2,10 +2,13 @@ import { useState, useEffect } from 'react';
 import { database } from '../firebase';
 import { ref, push, onValue } from 'firebase/database';
 import { motion } from 'motion/react';
-import { X, Calendar as CalendarIcon, Clock, Send, CheckCircle, User, Mail, MessageSquare, AlertTriangle } from 'lucide-react';
+import { X, Calendar as CalendarIcon, Clock, Send, CheckCircle, User, Mail, MessageSquare, AlertTriangle, Sparkles, Bot } from 'lucide-react';
 import { useI18n } from '../i18n';
 import { format } from 'date-fns';
 import type { MeetingRequest } from '../types';
+import { findAvailableSlot, type CalendarContext, type AISuggestion } from '../services/gemini';
+import { sendEmailViaEmailJS } from '../services/gmail';
+import AIBookingAssistant from './AIBookingAssistant';
 
 interface BookMeetingProps {
   isOpen: boolean;
@@ -15,6 +18,7 @@ interface BookMeetingProps {
 }
 
 interface BusySlot {
+  title: string;
   date: string;
   startTime: string;
   endTime: string;
@@ -30,6 +34,7 @@ function timesOverlap(s1: string, e1: string, s2: string, e2: string): boolean {
 
 export default function BookMeeting({ isOpen, onClose, preSelectedDate, preSelectedTime }: BookMeetingProps) {
   const { t, dir } = useI18n();
+  const [mode, setMode] = useState<'form' | 'ai'>('form');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [date, setDate] = useState(preSelectedDate || format(new Date(), 'yyyy-MM-dd'));
@@ -40,6 +45,11 @@ export default function BookMeeting({ isOpen, onClose, preSelectedDate, preSelec
   const [success, setSuccess] = useState(false);
   const [busySlots, setBusySlots] = useState<BusySlot[]>([]);
   const [isBusy, setIsBusy] = useState(false);
+  const [aiSuggestion, setAiSuggestion] = useState<AISuggestion | null>(null);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [pastors, setPastors] = useState<string[]>([]);
+  const [meetings, setMeetings] = useState<{ title: string; date: string; startTime: string; endTime: string }[]>([]);
+  const [unavailability, setUnavailability] = useState<BusySlot[]>([]);
 
   useEffect(() => {
     const meetingsRef = ref(database, 'meetings/');
@@ -47,13 +57,51 @@ export default function BookMeeting({ isOpen, onClose, preSelectedDate, preSelec
       const data = snapshot.val();
       if (data) {
         const slots: BusySlot[] = Object.values(data).map((val: any) => ({
+          title: val.title || '',
           date: val.date,
           startTime: val.startTime,
           endTime: val.endTime,
         }));
         setBusySlots(slots);
+        setMeetings(slots);
       } else {
         setBusySlots([]);
+        setMeetings([]);
+      }
+    });
+    return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    const unavailabilityRef = ref(database, 'unavailability/');
+    const unsubscribe = onValue(unavailabilityRef, (snapshot) => {
+      const data = snapshot.val();
+      if (data) {
+        const slots: BusySlot[] = Object.values(data).map((val: any) => ({
+          title: val.title || 'Unavailable',
+          date: val.date,
+          startTime: val.startTime || '00:00',
+          endTime: val.endTime || '23:59',
+        }));
+        setUnavailability(slots);
+      } else {
+        setUnavailability([]);
+      }
+    });
+    return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    const adminsRef = ref(database, 'admins/');
+    const unsubscribe = onValue(adminsRef, (snapshot) => {
+      const data = snapshot.val();
+      if (data) {
+        const emails: string[] = [];
+        Object.keys(data).forEach(k => {
+          const email = k.replace(/,/g, '.').toLowerCase().trim();
+          emails.push(email);
+        });
+        setPastors(emails);
       }
     });
     return () => unsubscribe();
@@ -65,6 +113,26 @@ export default function BookMeeting({ isOpen, onClose, preSelectedDate, preSelec
     );
     setIsBusy(conflict);
   }, [date, startTime, endTime, busySlots]);
+
+  const handleGetAiSuggestion = async () => {
+    setAiLoading(true);
+    try {
+      const context: CalendarContext = {
+        meetings,
+        unavailability,
+      };
+      const suggestion = await findAvailableSlot(context, 60, date, startTime);
+      setAiSuggestion(suggestion);
+      setDate(suggestion.suggestedDate);
+      setStartTime(suggestion.suggestedStartTime);
+      setEndTime(suggestion.suggestedEndTime);
+    } catch (err) {
+      console.error('AI suggestion failed:', err);
+      alert('Failed to get AI suggestion. Please try again.');
+    } finally {
+      setAiLoading(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -85,6 +153,18 @@ export default function BookMeeting({ isOpen, onClose, preSelectedDate, preSelec
         createdAt: Date.now(),
       };
       await push(ref(database, 'meetingRequests/'), request);
+
+      for (const pastorEmail of pastors) {
+        try {
+          await sendEmailViaEmailJS(pastorEmail, {
+            subject: `New Meeting Request from ${name}`,
+            fullReport: `A new meeting request has been submitted:\n\nName: ${name}\nEmail: ${email}\nDate: ${date}\nTime: ${startTime} - ${endTime}\nReason: ${reason}\n\nPlease log in to the dashboard to accept or reject this request.`,
+          });
+        } catch (err) {
+          console.error(`Failed to notify pastor ${pastorEmail}:`, err);
+        }
+      }
+
       setSuccess(true);
     } catch (err) {
       console.error(err);
@@ -125,10 +205,21 @@ export default function BookMeeting({ isOpen, onClose, preSelectedDate, preSelec
             <CalendarIcon size={20} />
             {t('booking.title')}
           </h3>
-          <button onClick={handleClose} className="p-2 hover:bg-gray-200 rounded-full transition-colors"><X size={20} /></button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setMode(mode === 'form' ? 'ai' : 'form')}
+              className="p-2 hover:bg-purple-100 rounded-full transition-colors text-purple-600"
+              title="Toggle AI Assistant"
+            >
+              <Bot size={20} />
+            </button>
+            <button onClick={handleClose} className="p-2 hover:bg-gray-200 rounded-full transition-colors"><X size={20} /></button>
+          </div>
         </div>
 
-        {success ? (
+        {mode === 'ai' ? (
+          <AIBookingAssistant isOpen={true} onClose={handleClose} preSelectedDate={preSelectedDate} />
+        ) : success ? (
           <div className="p-12 text-center">
             <div className="w-20 h-20 bg-green-50 rounded-full flex items-center justify-center mx-auto mb-6">
               <CheckCircle size={40} className="text-green-600" />
@@ -182,6 +273,32 @@ export default function BookMeeting({ isOpen, onClose, preSelectedDate, preSelec
               )}
             </div>
             </div>
+
+            <button
+              type="button"
+              onClick={handleGetAiSuggestion}
+              disabled={aiLoading}
+              className="w-full flex items-center justify-center gap-2 py-3 bg-purple-50 text-purple-700 rounded-xl font-bold hover:bg-purple-100 transition-colors text-sm border border-purple-200"
+            >
+              {aiLoading ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-purple-600"></div>
+                  Finding best slot...
+                </>
+              ) : (
+                <>
+                  <Sparkles size={16} />
+                  AI Suggest Best Time
+                </>
+              )}
+            </button>
+
+            {aiSuggestion && (
+              <div className="bg-purple-50 border border-purple-200 rounded-xl p-4 text-sm">
+                <div className="font-bold text-purple-700 mb-1">AI Suggestion:</div>
+                <div className="text-purple-600">{aiSuggestion.reason}</div>
+              </div>
+            )}
 
             <div className="space-y-1">
               <label className="text-xs font-bold text-gray-400 uppercase tracking-widest flex items-center gap-1">
