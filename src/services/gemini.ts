@@ -23,8 +23,14 @@ export interface AISuggestion {
   reason: string;
 }
 
-async function callOpenRouter(messages: { role: string; content: string }[], systemPrompt: string): Promise<string> {
-  const systemMessage = { role: 'system', content: systemPrompt };
+interface ReasoningMessage {
+  role: string;
+  content: string;
+  reasoning_details?: string;
+}
+
+async function callOpenRouter(messages: ReasoningMessage[], systemPrompt: string): Promise<string> {
+  const systemMessage: ReasoningMessage = { role: 'system', content: systemPrompt };
   
   const response = await fetch(OPENROUTER_URL, {
     method: 'POST',
@@ -35,6 +41,7 @@ async function callOpenRouter(messages: { role: string; content: string }[], sys
     body: JSON.stringify({
       model: 'nvidia/nemotron-3-super-120b-a12b:free',
       messages: [systemMessage, ...messages],
+      reasoning: { enabled: true },
     }),
   });
 

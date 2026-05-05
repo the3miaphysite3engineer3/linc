@@ -186,6 +186,7 @@ Keep responses under 3 sentences when possible. Use simple, warm language.`;
             { role: 'system', content: systemPrompt },
             { role: 'user', content: userMessage },
           ],
+          reasoning: { enabled: true },
         }),
       });
 

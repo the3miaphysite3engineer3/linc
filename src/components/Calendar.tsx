@@ -380,6 +380,7 @@ Otherwise, provide a helpful response about their calendar.`;
             { role: 'system', content: systemPrompt },
             { role: 'user', content: userMessage },
           ],
+          reasoning: { enabled: true },
         }),
       });
 
