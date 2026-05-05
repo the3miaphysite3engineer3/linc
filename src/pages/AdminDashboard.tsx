@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { database } from '../firebase';
 import { ref, onValue } from 'firebase/database';
 import { GiftKeys } from '../types';
-import { Search, User, Calendar as CalendarIcon, Sparkles, ScrollText, Heart, Mail, LayoutDashboard, Settings } from 'lucide-react';
+import { Search, User, Calendar as CalendarIcon, Sparkles, Mail, LayoutDashboard, Settings } from 'lucide-react';
 import AdminManager from '../components/AdminManager';
 import { format } from 'date-fns';
 import PageTitle from '../components/PageTitle';
@@ -227,24 +227,6 @@ export default function AdminDashboard() {
 
             <div className="p-8 space-y-12 max-h-[800px] overflow-y-auto">
               <section>
-                <h3 className="text-xl font-bold text-[#8B1E1E] border-b pb-2 mb-6">
-                  {t('dashboard.faithJourney')}
-                </h3>
-                <div className="space-y-6">
-                  {Object.entries(selected.fields.faith).map(([key, val]) => (
-                    <div key={key} className="space-y-2">
-                      <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">
-                        {lang === 'Arabic' ? val.questionArabic : val.questionEnglish}
-                      </p>
-                      <p className={`text-sm text-gray-700 leading-relaxed italic whitespace-pre-wrap ${isAr ? 'border-r-2 border-stone-200 pr-4' : 'border-l-2 border-stone-200 pl-4'}`}>
-                        {val.answer || 'N/A'}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              </section>
-
-              <section>
                 <h3 className="text-xl font-bold text-[#8B1E1E] border-b pb-2 mb-6 flex items-center gap-2">
                   <Sparkles size={20} />
                   {t('dashboard.giftScores')}
@@ -273,47 +255,6 @@ export default function AdminDashboard() {
                       <div className="text-[8px] uppercase tracking-widest font-black text-gray-400 mt-1">
                         {key} / 5
                       </div>
-                    </div>
-                  ))}
-                </div>
-              </section>
-
-              <section>
-                <h3 className="text-xl font-bold text-[#8B1E1E] border-b pb-2 mb-6 flex items-center gap-2">
-                  <ScrollText size={20} />
-                  {t('dashboard.vision')}
-                </h3>
-                <div className="space-y-6">
-                  {Object.entries(selected.fields.vision).map(([key, val]) => (
-                    <div key={key} className="space-y-2">
-                      <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">
-                        {lang === 'Arabic' ? val.questionArabic : val.questionEnglish}
-                      </p>
-                      <p className={`text-sm text-gray-700 leading-relaxed italic whitespace-pre-wrap ${isAr ? 'border-r-2 border-stone-200 pr-4' : 'border-l-2 border-stone-200 pl-4'}`}>
-                        {val.answer || 'N/A'}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              </section>
-
-              <section>
-                <h3 className="text-xl font-bold text-[#8B1E1E] border-b pb-2 mb-6 flex items-center gap-2">
-                  <Heart size={20} />
-                  {t('dashboard.backgroundInfo')}
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 text-sm">
-                  {[
-                    { label: t('dashboard.attendance'), id: 'attendance' },
-                    { label: t('dashboard.currentService'), id: 'currentService' },
-                    { label: t('dashboard.workContext'), id: 'workContext' },
-                    { label: t('dashboard.arabicFluency'), id: 'arabicFluency' },
-                    { label: t('dashboard.englishFluency'), id: 'englishFluency' },
-                    { label: t('dashboard.otherLanguages'), id: 'otherLanguages' },
-                  ].map(item => (
-                    <div key={item.id}>
-                      <h5 className={`font-bold text-gray-400 uppercase tracking-widest text-[10px] mb-2 ${isAr ? 'text-right' : 'text-left'}`}>{item.label}</h5>
-                      <p className="text-gray-700">{getTraineeValue(selected.fields, item.id) || 'N/A'}</p>
                     </div>
                   ))}
                 </div>

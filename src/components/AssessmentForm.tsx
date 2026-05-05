@@ -163,18 +163,66 @@ export default function AssessmentForm() {
 
       const tokens = getStoredTokens();
       if (tokens && trainee.email?.trim()) {
+        const faithRows = FAITH_IDS.map(qId =>
+          `<tr style="border-bottom: 1px solid #eee;"><td style="padding: 8px 4px; font-size: 13px; color: #555; width: 50%;">${t(`faith.${qId}`)}</td><td style="padding: 8px 4px; font-size: 13px; color: #333;">${faithAnswers[qId] || ''}</td></tr>`
+        ).join('');
+
+        const visionRows = VISION_IDS.map(qId =>
+          `<tr style="border-bottom: 1px solid #eee;"><td style="padding: 8px 4px; font-size: 13px; color: #555; width: 50%;">${t(`vision.${qId}`)}</td><td style="padding: 8px 4px; font-size: 13px; color: #333;">${visionAnswers[qId] || ''}</td></tr>`
+        ).join('');
+
+        const backgroundFields = [
+          { label: t('trainee.age'), value: trainee.age },
+          { label: t('trainee.attendance'), value: trainee.attendance },
+          { label: t('trainee.currentService'), value: trainee.currentService },
+          { label: t('trainee.workContext'), value: trainee.workContext },
+          { label: t('trainee.arabicFluency'), value: trainee.arabicFluency },
+          { label: t('trainee.englishFluency'), value: trainee.englishFluency },
+          { label: t('trainee.otherLanguages'), value: trainee.otherLanguages },
+        ];
+        const bgRows = backgroundFields.map(f =>
+          `<tr style="border-bottom: 1px solid #eee;"><td style="padding: 6px 4px; font-size: 13px; color: #555; width: 40%;">${f.label}</td><td style="padding: 6px 4px; font-size: 13px; color: #333;">${f.value || 'N/A'}</td></tr>`
+        ).join('');
+
+        const giftRows = (sortedGifts as [string, number][]).map(([key, score]) =>
+          `<tr style="border-bottom: 1px solid #eee;"><td style="padding: 6px 4px; font-size: 13px; color: #555; width: 50%;">${t(`giftRec.${key}`)}</td><td style="padding: 6px 4px; font-size: 13px; color: #333; font-weight: bold;">${score} / 25</td></tr>`
+        ).join('');
+
         const emailHtml = `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; background: #f5f4f0; border-radius: 22px;">
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; background: #f5f4f0;">
             <div style="background: #8b1e1e; color: white; padding: 16px; border-radius: 14px; text-align: center; margin-bottom: 20px;">
-              <h1 style="margin: 0; font-size: 20px;">LINC Spiritual Gifts Assessment</h1>
+              <h1 style="margin: 0; font-size: 20px;">LINC Spiritual Gifts Assessment — Full Report</h1>
             </div>
             <p style="color: #333; font-size: 15px;">Dear ${trainee.fullName},</p>
-            <p style="color: #555; font-size: 14px;">Thank you for completing the LINC Spiritual Gifts & Personal Calling Assessment. Here are your results:</p>
+            <p style="color: #555; font-size: 14px;">Thank you for completing the LINC Spiritual Gifts & Personal Calling Assessment. Below is your complete report:</p>
+
             <div style="background: white; padding: 16px; border-radius: 14px; border: 1px solid #e5e5e5; margin-bottom: 16px;">
+              <h3 style="margin: 0 0 12px; font-size: 16px; color: #8b1e1e;">Assessment Results</h3>
               <p style="margin: 4px 0; font-size: 14px;"><strong>Primary Gift:</strong> ${t(`giftRec.${sortedGifts[0][0]}`)}</p>
               <p style="margin: 4px 0; font-size: 14px;"><strong>Secondary Gift:</strong> ${t(`giftRec.${sortedGifts[1][0]}`)}</p>
               <p style="margin: 4px 0; font-size: 14px;"><strong>Recommended Ministry:</strong> ${t(`ministry.${sortedMinistry[0][0]}`)}</p>
             </div>
+
+            <div style="background: white; padding: 16px; border-radius: 14px; border: 1px solid #e5e5e5; margin-bottom: 16px;">
+              <h3 style="margin: 0 0 12px; font-size: 16px; color: #8b1e1e;">Spiritual Gift Scores</h3>
+              <table style="width: 100%; border-collapse: collapse;">${giftRows}</table>
+            </div>
+
+            <div style="background: white; padding: 16px; border-radius: 14px; border: 1px solid #e5e5e5; margin-bottom: 16px;">
+              <h3 style="margin: 0 0 12px; font-size: 16px; color: #8b1e1e;">Background Information</h3>
+              <table style="width: 100%; border-collapse: collapse;">${bgRows}</table>
+            </div>
+
+            <div style="background: white; padding: 16px; border-radius: 14px; border: 1px solid #e5e5e5; margin-bottom: 16px;">
+              <h3 style="margin: 0 0 12px; font-size: 16px; color: #8b1e1e;">Faith Journey</h3>
+              <table style="width: 100%; border-collapse: collapse;">${faithRows}</table>
+            </div>
+
+            <div style="background: white; padding: 16px; border-radius: 14px; border: 1px solid #e5e5e5; margin-bottom: 16px;">
+              <h3 style="margin: 0 0 12px; font-size: 16px; color: #8b1e1e;">Vision & Calling</h3>
+              <table style="width: 100%; border-collapse: collapse;">${visionRows}</table>
+            </div>
+
             <p style="color: #999; font-size: 12px; margin-top: 24px;">This assessment was submitted on ${submittedAt}.</p>
           </div>
         `;
