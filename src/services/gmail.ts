@@ -154,9 +154,7 @@ export const EMAILJS_PUBLIC_KEY = 'x_Xx3UHe3-yE1I13_';
 
 export async function sendEmailViaEmailJS(
   to: string,
-  subject: string,
-  htmlBody: string,
-  params: Record<string, string> = {}
+  params: Record<string, string>
 ): Promise<void> {
   const emailjs = await import('@emailjs/browser');
   await emailjs.send(
@@ -164,8 +162,6 @@ export async function sendEmailViaEmailJS(
     EMAILJS_TEMPLATE_ID,
     {
       to_email: to,
-      subject,
-      message: htmlBody,
       ...params,
     },
     EMAILJS_PUBLIC_KEY

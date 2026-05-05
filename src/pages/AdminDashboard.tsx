@@ -111,62 +111,58 @@ export default function AdminDashboard() {
     }
   };
 
-  const buildEmailHtml = (record: FormRecord) => {
+  const buildFullReport = (record: FormRecord) => {
     const rLang = record.interfaceLanguageUsed === 'Arabic' ? 'Arabic' : 'English';
     const results = record.results?.[rLang];
-    const tr = (label: string, value: string, bold = false) =>
-      `<tr style="border-bottom: 1px solid #eee;"><td style="padding: 8px 4px; font-size: 13px; color: #555; vertical-align: top; width: 45%;">${label}</td><td style="padding: 8px 4px; font-size: 13px; color: #333; vertical-align: top;${bold ? ' font-weight: bold;' : ''}">${value || 'N/A'}</td></tr>`;
+    const l = rLang === 'Arabic'
+      ? { title: 'نتيجة تقييم المواهب الروحية والدعوة الشخصية', submittedAt: 'وقت الإرسال', interfaceLanguageUsed: 'لغة النموذج المستخدمة', traineeInfo: 'معلومات المتدرب', assessmentResults: 'نتائج التقييم', primaryGift: 'الموهبة الأساسية', secondaryGift: 'الموهبة الثانوية', recommendedMinistry: 'مجال الخدمة المقترح', summary: 'الملخص', faithJourney: 'الرحلة الإيمانية والمسيرة مع الله', personalGifts: 'تقييم المواهب الشخصية', totalScore: 'الدرجة الإجمالية', score: 'الدرجة', answer: 'الإجابة', ministryAlignment: 'التوافق والخبرة نحو الخدمة', callingVision: 'أسئلة الدعوة والرؤية', notAvailable: 'غير متوفر' }
+      : { title: 'LINC SPIRITUAL GIFTS ASSESSMENT RESPONSE', submittedAt: 'Submitted At', interfaceLanguageUsed: 'Interface Language Used', traineeInfo: 'TRAINEE INFORMATION', assessmentResults: 'ASSESSMENT RESULTS', primaryGift: 'Primary Gift', secondaryGift: 'Secondary Gift', recommendedMinistry: 'Recommended Ministry', summary: 'Summary', faithJourney: 'FAITH JOURNEY AND WALK WITH GOD', personalGifts: 'PERSONAL GIFTS ASSESSMENT', totalScore: 'Total Score', score: 'Score', answer: 'Answer', ministryAlignment: 'MINISTRY ALIGNMENT AND EXPERIENCE', callingVision: 'CALLING AND VISION QUESTIONS', notAvailable: 'N/A' };
+    const sep = '=========================================';
+    const ssep = '-------------------------------';
 
-    const section = (title: string, rows: string) =>
-      `<div style="background: white; padding: 16px; border-radius: 14px; border: 1px solid #e5e5e5; margin-bottom: 16px;"><h3 style="margin: 0 0 12px; font-size: 16px; color: #8b1e1e;">${title}</h3><table style="width: 100%; border-collapse: collapse;">${rows}</table></div>`;
+    const traineeLines = Object.entries(record.fields.trainee).map(([_, f]) => {
+      const field = f as TraineeField;
+      return `${field.fieldEnglish}: ${field.value || l.notAvailable}`;
+    });
 
-    const bgRows = Object.entries(record.fields.trainee).map(([_, f]) =>
-      tr((f as TraineeField).fieldEnglish, (f as TraineeField).value)
-    ).join('');
+    const faithLines = Object.entries(record.fields.faith).map(([_, q]) => {
+      const qa = q as FaithAnswer;
+      return `${qa.questionEnglish}\n${l.answer}: ${qa.answer || l.notAvailable}`;
+    });
 
-    const giftRows = Object.entries(record.fields.gifts).map(([key, giftSection]) => {
-      const sectionData = giftSection as GiftSection;
-      const totalScore = record.scores?.gifts?.[key] || 0;
-      const header = `<tr style="border-bottom: 2px solid #8b1e1e;"><td style="padding: 8px 4px; font-size: 13px; color: #8b1e1e; font-weight: bold;" colspan="2">${sectionData.sectionEnglish} — Total: ${totalScore} / 25</td></tr>`;
-      const questions = Object.entries(sectionData.questions).map(([qKey, q]) =>
-        tr(`${qKey}. ${q.questionEnglish}`, `${q.score} / 5`)
-      ).join('');
-      return header + questions;
-    }).join('');
+    const giftLines = Object.entries(record.fields.gifts).map(([key, gs]) => {
+      const section = gs as GiftSection;
+      const qLines = Object.entries(section.questions).map(([qKey, q]) =>
+        `  ${qKey}. ${q.questionEnglish}\n  ${l.score}: ${q.score}/5`
+      ).join('\n\n');
+      return `${section.sectionEnglish}\n${l.totalScore}: ${record.scores?.gifts?.[key] || 0}/25\n${qLines}`;
+    });
 
-    const ministryRows = Object.entries(record.fields.ministry).map(([_key, m]) =>
-      tr((m as MinistryItem).areaEnglish, `${(m as MinistryItem).score} / 5`)
-    ).join('');
+    const ministryLines = Object.entries(record.fields.ministry).map(([_, m]) => {
+      const mi = m as MinistryItem;
+      return `${mi.areaEnglish}: ${mi.score}/5`;
+    });
 
-    const faithRows = Object.entries(record.fields.faith).map(([_, q]) =>
-      tr((q as FaithAnswer).questionEnglish, (q as FaithAnswer).answer || '')
-    ).join('');
+    const visionLines = Object.entries(record.fields.vision).map(([_, q]) => {
+      const va = q as VisionAnswer;
+      return `${va.questionEnglish}\n${l.answer}: ${va.answer || l.notAvailable}`;
+    });
 
-    const visionRows = Object.entries(record.fields.vision).map(([_, q]) =>
-      tr((q as VisionAnswer).questionEnglish, (q as VisionAnswer).answer || '')
-    ).join('');
-
-    return `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; background: #f5f4f0;">
-        <div style="background: #8b1e1e; color: white; padding: 16px; border-radius: 14px; text-align: center; margin-bottom: 20px;">
-          <h1 style="margin: 0; font-size: 20px;">LINC Spiritual Gifts Assessment — Full Report</h1>
-        </div>
-        <p style="color: #333; font-size: 15px;">Dear ${getTraineeValue(record.fields, 'fullName')},</p>
-        <p style="color: #555; font-size: 14px;">Thank you for completing the LINC Spiritual Gifts & Personal Calling Assessment. Below is your complete report:</p>
-        <div style="background: white; padding: 16px; border-radius: 14px; border: 1px solid #e5e5e5; margin-bottom: 16px;">
-          <h3 style="margin: 0 0 12px; font-size: 16px; color: #8b1e1e;">Assessment Results</h3>
-          ${tr('Primary Gift', results?.primaryGift || 'N/A', true)}
-          ${tr('Secondary Gift', results?.secondaryGift || 'N/A', true)}
-          ${tr('Recommended Ministry', results?.recommendedMinistry || 'N/A', true)}
-        </div>
-        ${section('Trainee Information', bgRows)}
-        ${section('Spiritual Gift Scores', giftRows)}
-        ${section('Ministry Alignment', ministryRows)}
-        ${section('Faith Journey & Walk with God', faithRows)}
-        ${section('Calling & Vision', visionRows)}
-        <p style="color: #999; font-size: 12px; margin-top: 24px;">This assessment was submitted on ${record.createdAtEasternTime}.</p>
-      </div>
-    `;
+    return [
+      l.title, sep, '',
+      `${l.submittedAt}: ${record.createdAtEasternTime}`,
+      `${l.interfaceLanguageUsed}: ${record.interfaceLanguageUsed}`, '',
+      l.traineeInfo, ssep, traineeLines.join('\n'), '',
+      l.assessmentResults, ssep,
+      `${l.primaryGift}: ${results?.primaryGift || l.notAvailable}`,
+      `${l.secondaryGift}: ${results?.secondaryGift || l.notAvailable}`,
+      `${l.recommendedMinistry}: ${results?.recommendedMinistry || l.notAvailable}`, '',
+      `${l.summary}:`, results?.summary || '', '',
+      l.faithJourney, ssep, faithLines.join('\n\n'), '',
+      l.personalGifts, ssep, giftLines.join('\n\n'), '',
+      l.ministryAlignment, ssep, ministryLines.join('\n'), '',
+      l.callingVision, ssep, visionLines.join('\n\n'),
+    ].join('\n');
   };
 
   const handleSendEmail = async () => {
@@ -176,13 +172,20 @@ export default function AdminDashboard() {
     setEmailSending(true);
     setEmailSent(false);
     try {
-      const html = buildEmailHtml(selected);
-      await sendEmailViaEmailJS(
-        email,
-        'Your LINC Spiritual Gifts Assessment Results',
-        html,
-        { fullName: getTraineeValue(selected.fields, 'fullName'), submittedAt: selected.createdAtEasternTime }
-      );
+      const rLang = selected.interfaceLanguageUsed === 'Arabic' ? 'Arabic' : 'English';
+      const results = selected.results?.[rLang];
+      const fullReport = buildFullReport(selected);
+      await sendEmailViaEmailJS(email, {
+        fullName: getTraineeValue(selected.fields, 'fullName'),
+        surveyDate: getTraineeValue(selected.fields, 'surveyDate'),
+        age: getTraineeValue(selected.fields, 'age'),
+        interfaceLanguageUsed: selected.interfaceLanguageUsed,
+        submittedAt: selected.createdAtEasternTime,
+        primaryGift: results?.primaryGift || '',
+        secondaryGift: results?.secondaryGift || '',
+        recommendedMinistry: results?.recommendedMinistry || '',
+        fullReport,
+      });
       setEmailSent(true);
       setTimeout(() => setEmailSent(false), 4000);
     } catch (err) {

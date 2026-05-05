@@ -196,15 +196,19 @@ export default function AssessmentForm() {
       await push(ref(database, 'form/'), record);
 
       if (trainee.email?.trim()) {
-        const section = (title: string, rows: string) => `
-          <div style="background: white; padding: 16px; border-radius: 14px; border: 1px solid #e5e5e5; margin-bottom: 16px;">
-            <h3 style="margin: 0 0 12px; font-size: 16px; color: #8b1e1e;">${title}</h3>
-            <table style="width: 100%; border-collapse: collapse;">${rows}</table>
-          </div>
-        `;
+        const isAr = dir === 'rtl';
+        const lang = isAr ? 'Arabic' : 'English';
+        const rl: Record<string, Record<string, string>> = {
+          English: { title: 'LINC SPIRITUAL GIFTS ASSESSMENT RESPONSE', submittedAt: 'Submitted At', interfaceLanguageUsed: 'Interface Language Used', traineeInfo: 'TRAINEE INFORMATION', assessmentResults: 'ASSESSMENT RESULTS', primaryGift: 'Primary Gift', secondaryGift: 'Secondary Gift', recommendedMinistry: 'Recommended Ministry', summary: 'Summary', faithJourney: 'FAITH JOURNEY AND WALK WITH GOD', personalGifts: 'PERSONAL GIFTS ASSESSMENT', totalScore: 'Total Score', score: 'Score', answer: 'Answer', ministryAlignment: 'MINISTRY ALIGNMENT AND EXPERIENCE', callingVision: 'CALLING AND VISION QUESTIONS', notAvailable: 'N/A' },
+          Arabic: { title: 'نتيجة تقييم المواهب الروحية والدعوة الشخصية', submittedAt: 'وقت الإرسال', interfaceLanguageUsed: 'لغة النموذج المستخدمة', traineeInfo: 'معلومات المتدرب', assessmentResults: 'نتائج التقييم', primaryGift: 'الموهبة الأساسية', secondaryGift: 'الموهبة الثانوية', recommendedMinistry: 'مجال الخدمة المقترح', summary: 'الملخص', faithJourney: 'الرحلة الإيمانية والمسيرة مع الله', personalGifts: 'تقييم المواهب الشخصية', totalScore: 'الدرجة الإجمالية', score: 'الدرجة', answer: 'الإجابة', ministryAlignment: 'التوافق والخبرة نحو الخدمة', callingVision: 'أسئلة الدعوة والرؤية', notAvailable: 'غير متوفر' },
+        };
+        const l = rl[lang];
+        const sep = '=========================================';
+        const ssep = '-------------------------------';
 
-        const tr = (label: string, value: string, bold = false) =>
-          `<tr style="border-bottom: 1px solid #eee;"><td style="padding: 8px 4px; font-size: 13px; color: #555; vertical-align: top; width: 45%;">${label}</td><td style="padding: 8px 4px; font-size: 13px; color: #333; vertical-align: top;${bold ? ' font-weight: bold;' : ''}">${value || 'N/A'}</td></tr>`;
+        const primaryGiftKey = sortedGifts[0][0];
+        const secondaryGiftKey = sortedGifts[1][0];
+        const topMinistryKey = sortedMinistry[0][0];
 
         const giftRecMap: Record<string, { en: string; ar: string }> = {
           A: { en: 'Apostolic / Pioneering Leadership', ar: 'قيادة رسولية / خدمة رائدة' },
@@ -213,7 +217,6 @@ export default function AssessmentForm() {
           D: { en: 'Pastoral Care and Shepherding', ar: 'الرعاية الروحية وقلب الراعي' },
           E: { en: 'Teaching, Training, and Discipleship', ar: 'التعليم والتدريب والتلمذة' },
         };
-
         const ministryMap: Record<string, { en: string; ar: string }> = {
           F1: { en: 'Prayer and Intercession', ar: 'الصلاة والشفاعة' },
           F2: { en: 'Evangelism and Outreach', ar: 'التبشير والتواصل' },
@@ -227,81 +230,68 @@ export default function AssessmentForm() {
           F10: { en: 'Hospitality and Welcome', ar: 'الضيافة والترحيب' },
         };
 
-        const primaryGiftKey = sortedGifts[0][0];
-        const secondaryGiftKey = sortedGifts[1][0];
-        const topMinistryKey = sortedMinistry[0][0];
+        const langResult = results[lang];
+        const pg = giftRecMap[primaryGiftKey]?.[isAr ? 'ar' : 'en'] || primaryGiftKey;
+        const sg = giftRecMap[secondaryGiftKey]?.[isAr ? 'ar' : 'en'] || secondaryGiftKey;
+        const rm = ministryMap[topMinistryKey]?.[isAr ? 'ar' : 'en'] || topMinistryKey;
 
-        const isAr = dir === 'rtl';
-        const primaryGift = giftRecMap[primaryGiftKey]?.[isAr ? 'ar' : 'en'] || primaryGiftKey;
-        const secondaryGift = giftRecMap[secondaryGiftKey]?.[isAr ? 'ar' : 'en'] || secondaryGiftKey;
-        const recommendedMinistry = ministryMap[topMinistryKey]?.[isAr ? 'ar' : 'en'] || topMinistryKey;
+        const traineeLines = TRAINEE_IDS.map(id => {
+          const f = fields.trainee[id];
+          return `${f.fieldEnglish}: ${f.value || l.notAvailable}`;
+        });
 
-        const giftSectionRows = GIFT_SECTIONS.map(key => {
-          const sectionTitle = t(`gift.${key}.title`);
-          const questions = GIFT_QUESTIONS[key].map(qId =>
-            tr(`${qId}. ${t(`gift.${qId}`)}`, `${giftScores[qId] || 0} / 5`)
-          ).join('');
-          const totalRow = `<tr style="border-bottom: 2px solid #8b1e1e;"><td style="padding: 8px 4px; font-size: 13px; color: #8b1e1e; font-weight: bold;" colspan="2">${sectionTitle} — Total: ${giftTotals[key] || 0} / 25</td></tr>`;
-          return totalRow + questions;
-        }).join('');
+        const faithLines = FAITH_IDS.map(qId => {
+          const q = fields.faith[qId];
+          return `${q.questionEnglish}\n${l.answer}: ${q.answer || l.notAvailable}`;
+        });
 
-        const ministryRows = MINISTRY_IDS.map(mId =>
-          tr(t(`ministry.${mId}`), `${ministryTotals[mId as keyof typeof ministryTotals] || 0} / 5`)
-        ).join('');
+        const giftLines = GIFT_SECTIONS.map(key => {
+          const gs = fields.gifts[key];
+          const qLines = Object.keys(gs.questions).map(qKey => {
+            const q = gs.questions[qKey];
+            return `  ${qKey}. ${q.questionEnglish}\n  ${l.score}: ${q.score}/5`;
+          });
+          return `${gs.sectionEnglish}\n${l.totalScore}: ${giftTotals[key]}/25\n${qLines.join('\n\n')}`;
+        });
 
-        const backgroundFields = [
-          { label: t('trainee.fullName'), value: trainee.fullName },
-          { label: t('trainee.surveyDate'), value: trainee.surveyDate },
-          { label: t('trainee.age'), value: trainee.age },
-          { label: t('trainee.attendance'), value: trainee.attendance },
-          { label: t('trainee.currentService'), value: trainee.currentService },
-          { label: t('trainee.workContext'), value: trainee.workContext },
-          { label: t('trainee.arabicFluency'), value: trainee.arabicFluency },
-          { label: t('trainee.englishFluency'), value: trainee.englishFluency },
-          { label: t('trainee.otherLanguages'), value: trainee.otherLanguages },
-        ];
-        const bgRows = backgroundFields.map(f => tr(f.label, f.value)).join('');
+        const ministryLines = MINISTRY_IDS.map(mId => {
+          const m = fields.ministry[mId];
+          return `${m.areaEnglish}: ${m.score}/5`;
+        });
 
-        const faithRows = FAITH_IDS.map(qId =>
-          tr(t(`faith.${qId}`), faithAnswers[qId] || '')
-        ).join('');
+        const visionLines = VISION_IDS.map(vId => {
+          const v = fields.vision[vId];
+          return `${v.questionEnglish}\n${l.answer}: ${v.answer || l.notAvailable}`;
+        });
 
-        const visionRows = VISION_IDS.map(vId =>
-          tr(t(`vision.${vId}`), visionAnswers[vId] || '')
-        ).join('');
-
-        const emailHtml = `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; background: #f5f4f0;">
-            <div style="background: #8b1e1e; color: white; padding: 16px; border-radius: 14px; text-align: center; margin-bottom: 20px;">
-              <h1 style="margin: 0; font-size: 20px;">LINC Spiritual Gifts Assessment — Full Report</h1>
-            </div>
-            <p style="color: #333; font-size: 15px;">Dear ${trainee.fullName},</p>
-            <p style="color: #555; font-size: 14px;">Thank you for completing the LINC Spiritual Gifts & Personal Calling Assessment. Below is your complete report:</p>
-
-            <div style="background: white; padding: 16px; border-radius: 14px; border: 1px solid #e5e5e5; margin-bottom: 16px;">
-              <h3 style="margin: 0 0 12px; font-size: 16px; color: #8b1e1e;">Assessment Results</h3>
-              ${tr('Primary Gift', primaryGift, true)}
-              ${tr('Secondary Gift', secondaryGift, true)}
-              ${tr('Recommended Ministry', recommendedMinistry, true)}
-            </div>
-
-            ${section('Trainee Information', bgRows)}
-            ${section('Spiritual Gift Scores', giftSectionRows)}
-            ${section('Ministry Alignment', ministryRows)}
-            ${section('Faith Journey & Walk with God', faithRows)}
-            ${section('Calling & Vision', visionRows)}
-
-            <p style="color: #999; font-size: 12px; margin-top: 24px;">This assessment was submitted on ${submittedAt}.</p>
-          </div>
-        `;
+        const fullReport = [
+          l.title, sep, '',
+          `${l.submittedAt}: ${submittedAt}`,
+          `${l.interfaceLanguageUsed}: ${lang}`, '',
+          l.traineeInfo, ssep, traineeLines.join('\n'), '',
+          l.assessmentResults, ssep,
+          `${l.primaryGift}: ${pg}`,
+          `${l.secondaryGift}: ${sg}`,
+          `${l.recommendedMinistry}: ${rm}`, '',
+          `${l.summary}:`, langResult.summary, '',
+          l.faithJourney, ssep, faithLines.join('\n\n'), '',
+          l.personalGifts, ssep, giftLines.join('\n\n'), '',
+          l.ministryAlignment, ssep, ministryLines.join('\n'), '',
+          l.callingVision, ssep, visionLines.join('\n\n'),
+        ].join('\n');
 
         try {
-          await sendEmailViaEmailJS(
-            trainee.email.trim(),
-            'Your LINC Spiritual Gifts Assessment Results',
-            emailHtml.trim(),
-            { fullName: trainee.fullName, submittedAt }
-          );
+          await sendEmailViaEmailJS(trainee.email.trim(), {
+            fullName: trainee.fullName,
+            surveyDate: trainee.surveyDate,
+            age: trainee.age,
+            interfaceLanguageUsed: lang,
+            submittedAt,
+            primaryGift: pg,
+            secondaryGift: sg,
+            recommendedMinistry: rm,
+            fullReport,
+          });
         } catch (emailErr) {
           console.error('Email send failed:', emailErr);
         }
