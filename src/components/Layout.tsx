@@ -54,15 +54,6 @@ export default function Layout({ children, activeTab, isAdmin, isSuperAdmin }: L
 
           {isAdmin && (
             <>
-              {isSuperAdmin && (
-                <Link
-                  to="/dashboard"
-                  className={`flex flex-col md:flex-row items-center gap-1 md:gap-2 text-sm font-medium transition-colors ${activeTab === 'dashboard' ? 'text-[#8B1E1E]' : 'text-gray-500 hover:text-[#8B1E1E]'}`}
-                >
-                  <LayoutDashboard size={20} />
-                  <span className="text-[10px] md:text-sm uppercase tracking-wider">{t('nav.results')}</span>
-                </Link>
-              )}
               <Link
                 to="/calendar"
                 className={`flex flex-col md:flex-row items-center gap-1 md:gap-2 text-sm font-medium transition-colors ${activeTab === 'calendar' ? 'text-[#8B1E1E]' : 'text-gray-500 hover:text-[#8B1E1E]'}`}
@@ -77,6 +68,15 @@ export default function Layout({ children, activeTab, isAdmin, isSuperAdmin }: L
                 <BookOpen size={20} />
                 <span className="text-[10px] md:text-sm uppercase tracking-wider">{t('nav.guide')}</span>
               </Link>
+              {isSuperAdmin && (
+                <Link
+                  to="/dashboard"
+                  className={`flex flex-col md:flex-row items-center gap-1 md:gap-2 text-sm font-medium transition-colors ${activeTab === 'dashboard' ? 'text-[#8B1E1E]' : 'text-gray-500 hover:text-[#8B1E1E]'}`}
+                >
+                  <LayoutDashboard size={20} />
+                  <span className="text-[10px] md:text-sm uppercase tracking-wider">Admin</span>
+                </Link>
+              )}
             </>
           )}
         </div>
