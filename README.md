@@ -25,9 +25,13 @@ A bilingual (English/Arabic) church administration dashboard for LINC Ministries
 - Upcoming meetings list with quick actions
 
 ### Public Meeting Booking
-- **Book a Meeting** button on the landing page for church members
-- Form collects name, email, preferred date/time, and reason
-- **Automatic conflict detection**: prevents booking during existing pastor meetings
+- **Book a Meeting** link on the landing page and navigation bar opens a full-page interactive calendar
+- **Color-coded time slots** for visual clarity:
+  - 🔴 **Light Red** — Infeasible (past dates, past hours, or outside business hours 9 AM–5 PM)
+  - 🟢 **Light Green** — Available for booking
+  - ⚫ **Gray** — Already booked (existing meetings or pending requests)
+- Click any available date, then select a green time slot to fill out the booking form
+- Form collects name, email, and reason for the meeting
 - Submissions are stored as pending requests in Firebase
 
 ### Meeting Request Management

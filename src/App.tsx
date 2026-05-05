@@ -8,6 +8,7 @@ import LandingPage from './pages/LandingPage';
 import PrivacyPolicy from './pages/PrivacyPolicy';
 import TermsOfService from './pages/TermsOfService';
 import GuidePage from './pages/GuidePage';
+import BookingCalendar from './pages/BookingCalendar';
 import { auth, signInWithGoogle, signInWithEmail, signUpWithEmail } from './firebase';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { LogIn, ShieldCheck, Mail, Lock, AlertCircle } from 'lucide-react';
@@ -202,6 +203,14 @@ function AppRoutes() {
         element={
           <Layout activeTab={getActiveTab()} isAdmin={false}>
             <AssessmentForm />
+          </Layout>
+        }
+      />
+      <Route
+        path="/booking"
+        element={
+          <Layout activeTab="booking" isAdmin={false}>
+            <BookingCalendar />
           </Layout>
         }
       />

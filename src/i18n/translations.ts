@@ -7,6 +7,7 @@ export const translations: Record<string, { en: string; ar: string }> = {
   'nav.results': { en: 'Results', ar: 'النتائج' },
   'nav.calendar': { en: 'Calendar', ar: 'التقويم' },
   'nav.guide': { en: 'Guide', ar: 'الدليل' },
+  'nav.book': { en: 'Book', ar: 'حجز' },
   'nav.signOut': { en: 'Sign Out', ar: 'تسجيل الخروج' },
   'footer.tagline': { en: 'LINC Spiritual Gifts & Personal Calling Assessment', ar: 'تقييم المواهب الروحية والدعوة الشخصية' },
   'footer.privacy': { en: 'Privacy Policy', ar: 'سياسة الخصوصية' },
@@ -326,6 +327,14 @@ export const translations: Record<string, { en: string; ar: string }> = {
   'booking.acceptedEmailSubject': { en: 'Meeting Request Accepted', ar: 'تم قبول طلب الاجتماع' },
   'booking.acceptedEmailTitle': { en: 'Meeting Confirmed', ar: 'تم تأكيد الاجتماع' },
   'booking.acceptedEmailBody': { en: 'Your meeting request with the pastor has been accepted. Please be available at the scheduled time.', ar: 'تم قبول طلب اجتماعك مع الراعي. يرجى التواجد في الوقت المحدد.' },
+  'booking.pageTitle': { en: 'Book a Meeting with the Pastor', ar: 'حجز اجتماع مع الراعي' },
+  'booking.pageDesc': { en: 'Select a date and available time slot to request a meeting.', ar: 'اختر تاريخاً ووقتاً متاحاً لطلب اجتماع.' },
+  'booking.legendInfeasible': { en: 'Infeasible', ar: 'غير متاح' },
+  'booking.legendAvailable': { en: 'Available', ar: 'متاح' },
+  'booking.legendBooked': { en: 'Booked', ar: 'محجوز' },
+  'booking.slotAvailable': { en: 'Available', ar: 'متاح' },
+  'booking.bookFor': { en: 'Book for', ar: 'حجز لـ' },
+  'booking.pastDay': { en: 'Cannot book a past date. Please select a future date.', ar: 'لا يمكن حجز تاريخ سابق. يرجى اختيار تاريخ مستقبلي.' },
 
   // Meeting Requests (Calendar admin)
   'requests.title': { en: 'Meeting Requests', ar: 'طلبات الاجتماع' },
