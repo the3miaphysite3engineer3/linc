@@ -10,9 +10,10 @@ interface LayoutProps {
   children: React.ReactNode;
   activeTab?: string;
   isAdmin?: boolean;
+  isSuperAdmin?: boolean;
 }
 
-export default function Layout({ children, activeTab, isAdmin }: LayoutProps) {
+export default function Layout({ children, activeTab, isAdmin, isSuperAdmin }: LayoutProps) {
   const [user] = useAuthState(auth);
   const { t, dir, locale, setLocale } = useI18n();
 
@@ -53,13 +54,15 @@ export default function Layout({ children, activeTab, isAdmin }: LayoutProps) {
 
           {isAdmin && (
             <>
-              <Link
-                to="/dashboard"
-                className={`flex flex-col md:flex-row items-center gap-1 md:gap-2 text-sm font-medium transition-colors ${activeTab === 'dashboard' ? 'text-[#8B1E1E]' : 'text-gray-500 hover:text-[#8B1E1E]'}`}
-              >
-                <LayoutDashboard size={20} />
-                <span className="text-[10px] md:text-sm uppercase tracking-wider">{t('nav.results')}</span>
-              </Link>
+              {isSuperAdmin && (
+                <Link
+                  to="/dashboard"
+                  className={`flex flex-col md:flex-row items-center gap-1 md:gap-2 text-sm font-medium transition-colors ${activeTab === 'dashboard' ? 'text-[#8B1E1E]' : 'text-gray-500 hover:text-[#8B1E1E]'}`}
+                >
+                  <LayoutDashboard size={20} />
+                  <span className="text-[10px] md:text-sm uppercase tracking-wider">{t('nav.results')}</span>
+                </Link>
+              )}
               <Link
                 to="/calendar"
                 className={`flex flex-col md:flex-row items-center gap-1 md:gap-2 text-sm font-medium transition-colors ${activeTab === 'calendar' ? 'text-[#8B1E1E]' : 'text-gray-500 hover:text-[#8B1E1E]'}`}

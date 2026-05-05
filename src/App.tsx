@@ -209,8 +209,8 @@ function AppRoutes() {
       <Route
         path="/dashboard"
         element={
-          <Layout activeTab={getActiveTab()} isAdmin={!!isPastor}>
-            <ProtectedRoute hasAccess={!!isPastor} loading={appLoading}>
+          <Layout activeTab={getActiveTab()} isAdmin={!!isSuperAdmin} isSuperAdmin={!!isSuperAdmin}>
+            <ProtectedRoute hasAccess={!!isSuperAdmin} loading={appLoading}>
               <AdminDashboard isSuperAdmin={!!isSuperAdmin} userEmail={userEmail} />
             </ProtectedRoute>
           </Layout>
@@ -219,7 +219,7 @@ function AppRoutes() {
       <Route
         path="/calendar"
         element={
-          <Layout activeTab={getActiveTab()} isAdmin={!!isPastor}>
+          <Layout activeTab={getActiveTab()} isAdmin={!!isPastor} isSuperAdmin={!!isSuperAdmin}>
             <ProtectedRoute hasAccess={!!isPastor} loading={appLoading}>
               <Calendar />
             </ProtectedRoute>
@@ -229,7 +229,7 @@ function AppRoutes() {
       <Route
         path="/guide"
         element={
-          <Layout activeTab={getActiveTab()} isAdmin={!!isPastor}>
+          <Layout activeTab={getActiveTab()} isAdmin={!!isPastor} isSuperAdmin={!!isSuperAdmin}>
             <ProtectedRoute hasAccess={!!isPastor} loading={appLoading}>
               <GuidePage />
             </ProtectedRoute>
@@ -239,7 +239,7 @@ function AppRoutes() {
       <Route
         path="/assessment"
         element={
-          <Layout activeTab={getActiveTab()} isAdmin={false}>
+          <Layout activeTab={getActiveTab()} isAdmin={false} isSuperAdmin={false}>
             <AssessmentForm />
           </Layout>
         }
@@ -247,7 +247,7 @@ function AppRoutes() {
       <Route
         path="/booking"
         element={
-          <Layout activeTab="booking" isAdmin={false}>
+          <Layout activeTab="booking" isAdmin={false} isSuperAdmin={false}>
             <BookingCalendar />
           </Layout>
         }
