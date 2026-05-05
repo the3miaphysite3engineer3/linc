@@ -76,7 +76,7 @@ export default function LandingPage() {
                 {Arrow}
               </button>
               <button
-                onClick={() => navigate('/dashboard')}
+                onClick={() => navigate('/calendar')}
                 className="inline-flex items-center gap-3 min-h-[56px] px-10 bg-white text-[#8b1e1e] border-2 border-[#8b1e1e] rounded-full font-bold text-lg transition-transform hover:-translate-y-[2px] hover:bg-[#f8eeee]"
               >
                 <LogIn size={18} />

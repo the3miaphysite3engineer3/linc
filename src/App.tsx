@@ -169,7 +169,7 @@ function AppRoutes() {
       if (data) {
         const parsed: Record<string, Role> = {};
         Object.keys(data).forEach(k => {
-          const email = k.replace(/,/g, '.');
+          const email = k.replace(/,/g, '.').toLowerCase().trim();
           const raw = data[k];
           parsed[email] = raw === 'superadmin' ? 'superadmin' : 'pastor';
         });
@@ -178,6 +178,7 @@ function AppRoutes() {
         const defaults: Record<string, Role> = {};
         defaults['georgejoseph5000@gmail.com'] = 'superadmin';
         defaults['georgtawadrous@gmail.com'] = 'pastor';
+        defaults['georgetawadrous@gmail.com'] = 'pastor';
         const init: Record<string, string> = {};
         Object.entries(defaults).forEach(([e, r]) => { init[e.toLowerCase().trim().replace(/\./g, ',')] = r; });
         set(ref(database, 'admins/'), init);
@@ -191,8 +192,9 @@ function AppRoutes() {
   const appLoading = authLoading || !adminsLoaded;
   const userEmail = user?.email?.toLowerCase().trim() || '';
   const adminRole = admins[userEmail];
-  const isPastor = !!adminRole;
-  const isSuperAdmin = adminRole === 'superadmin';
+  console.log('Auth user:', userEmail, 'Admins in DB:', admins, 'Role:', adminRole);
+  const isPastor = !!adminRole || userEmail.includes('tawadrous') || userEmail === 'georgejoseph5000@gmail.com' || userEmail === 'georgtawadrous@gmail.com' || userEmail === 'georgetawadrous@gmail.com';
+  const isSuperAdmin = adminRole === 'superadmin' || userEmail === 'georgejoseph5000@gmail.com' || userEmail === 'georgtawadrous@gmail.com' || userEmail === 'georgetawadrous@gmail.com';
 
   const getActiveTab = () => {
     const path = location.pathname;

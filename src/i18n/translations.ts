@@ -247,7 +247,7 @@ export const translations: Record<string, { en: string; ar: string }> = {
   'auth.weakPassword': { en: 'Password should be at least 6 characters.', ar: 'يجب أن تكون كلمة المرور 6 أحرف على الأقل.' },
   'auth.deniedTitle': { en: 'Access Denied', ar: 'تم رفض الوصول' },
   'auth.deniedQuote': { en: '"For even the Son of Man did not come to be served, but to serve..."', ar: '"لأن ابن الإنسان أيضاً لم يأتِ ليُخدم بل ليخدم..."' },
-  'auth.deniedDesc': { en: 'You do not have permission to access the pastor\'s dashboard.', ar: 'ليس لديك صلاحية للوصول إلى لوحة تحكم الراعي.' },
+  'auth.deniedDesc': { en: 'You do not have permission to access this dashboard.', ar: 'ليس لديك صلاحية للوصول إلى هذه اللوحة.' },
   'auth.signedInAs': { en: 'You are logged in as', ar: 'تم تسجيل دخولك باسم' },
   'auth.notAuthorized': { en: 'not authorized for admin access.', ar: 'غير مصرح له بالوصول الإداري.' },
 
