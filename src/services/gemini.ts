@@ -1,5 +1,10 @@
-const OPENROUTER_API_KEY = import.meta.env.VITE_OPENROUTER_API_KEY;
-const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
+import OpenAI from 'openai';
+
+const client = new OpenAI({
+  baseURL: 'https://openrouter.ai/api/v1',
+  apiKey: import.meta.env.VITE_OPENROUTER_API_KEY,
+  dangerouslyAllowBrowser: true,
+});
 
 export interface CalendarContext {
   meetings: Array<{
@@ -23,35 +28,23 @@ export interface AISuggestion {
   reason: string;
 }
 
-interface ReasoningMessage {
+type ORChatMessage = {
   role: string;
   content: string;
-  reasoning_details?: string;
-}
+  reasoning_details?: unknown;
+};
 
-async function callOpenRouter(messages: ReasoningMessage[], systemPrompt: string): Promise<string> {
-  const systemMessage: ReasoningMessage = { role: 'system', content: systemPrompt };
-  
-  const response = await fetch(OPENROUTER_URL, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${OPENROUTER_API_KEY}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: 'nvidia/nemotron-3-super-120b-a12b:free',
-      messages: [systemMessage, ...messages],
-      reasoning: { enabled: true },
-    }),
-  });
+async function callOpenRouter(messages: ORChatMessage[], systemPrompt: string): Promise<string> {
+  const systemMessage: ORChatMessage = { role: 'system', content: systemPrompt };
 
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error?.message || 'OpenRouter API call failed');
-  }
+  const apiResponse = await client.chat.completions.create({
+    model: 'nvidia/nemotron-3-super-120b-a12b:free',
+    messages: [systemMessage, ...messages] as any,
+    reasoning: { enabled: true },
+  } as any);
 
-  const result = await response.json();
-  return result.choices?.[0]?.message?.content || '';
+  const response = apiResponse.choices[0].message as ORChatMessage & { content: string };
+  return response.content || '';
 }
 
 export async function findAvailableSlot(

@@ -4,6 +4,7 @@ import { X, Send, Sparkles, Bot, User } from 'lucide-react';
 import { format } from 'date-fns';
 import { database } from '../firebase';
 import { ref, push, onValue } from 'firebase/database';
+import OpenAI from 'openai';
 
 const OPENROUTER_API_KEY = import.meta.env.VITE_OPENROUTER_API_KEY;
 
@@ -174,28 +175,23 @@ Be friendly, concise, and helpful. Guide users through the booking process natur
 Keep responses under 3 sentences when possible. Use simple, warm language.`;
 
     try {
-      const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${OPENROUTER_API_KEY}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'nvidia/nemotron-3-super-120b-a12b:free',
-          messages: [
-            { role: 'system', content: systemPrompt },
-            { role: 'user', content: userMessage },
-          ],
-          reasoning: { enabled: true },
-        }),
+      const client = new OpenAI({
+        baseURL: 'https://openrouter.ai/api/v1',
+        apiKey: OPENROUTER_API_KEY,
+        dangerouslyAllowBrowser: true,
       });
 
-      if (!response.ok) {
-        throw new Error('OpenRouter API call failed');
-      }
+      const apiResponse = await client.chat.completions.create({
+        model: 'nvidia/nemotron-3-super-120b-a12b:free',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userMessage },
+        ] as any,
+        reasoning: { enabled: true },
+      } as any);
 
-      const result = await response.json();
-      return result.choices?.[0]?.message?.content || getDefaultResponse(userMessage);
+      const result = apiResponse.choices?.[0]?.message as { content: string } | undefined;
+      return result?.content || getDefaultResponse(userMessage);
     } catch (err) {
       console.error('AI response failed:', err);
       return getDefaultResponse(userMessage);

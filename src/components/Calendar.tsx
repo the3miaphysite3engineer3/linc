@@ -19,6 +19,7 @@ import {
 import PageTitle from './PageTitle';
 import { useI18n } from '../i18n';
 import BookMeeting from './BookMeeting';
+import OpenAI from 'openai';
 
 interface Participant {
   id: string;
@@ -368,28 +369,22 @@ When the user wants to reject a request, respond with: ACTION:REJECT_REQUEST|req
 
 Otherwise, provide a helpful response about their calendar.`;
 
-      const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${OPENROUTER_API_KEY}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'nvidia/nemotron-3-super-120b-a12b:free',
-          messages: [
-            { role: 'system', content: systemPrompt },
-            { role: 'user', content: userMessage },
-          ],
-          reasoning: { enabled: true },
-        }),
+      const client = new OpenAI({
+        baseURL: 'https://openrouter.ai/api/v1',
+        apiKey: OPENROUTER_API_KEY,
+        dangerouslyAllowBrowser: true,
       });
 
-      if (!response.ok) {
-        throw new Error('OpenRouter API call failed');
-      }
+      const apiResponse = await client.chat.completions.create({
+        model: 'nvidia/nemotron-3-super-120b-a12b:free',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userMessage },
+        ] as any,
+        reasoning: { enabled: true },
+      } as any);
 
-      const result = await response.json();
-      const aiResponse = result.choices?.[0]?.message?.content || 'I could not process that request.';
+      const aiResponse = apiResponse.choices?.[0]?.message?.content || 'I could not process that request.';
 
       if (aiResponse.startsWith('ACTION:')) {
         const [action, ...params] = aiResponse.split('|');
