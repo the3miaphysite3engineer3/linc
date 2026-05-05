@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion } from 'motion/react';
 import { Church, LayoutDashboard, ClipboardList, Calendar as CalendarIcon, LogOut, Home } from 'lucide-react';
-import { auth } from '../lib/firebase';
+import { auth } from '../firebase';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { Link } from 'react-router-dom';
 
@@ -91,7 +91,15 @@ export default function Layout({ children, activeTab, isAdmin }: LayoutProps) {
         <p className="italic text-sm text-gray-500">
           LINC Spiritual Gifts & Personal Calling Assessment
         </p>
-        <p className="text-xs text-gray-400 mt-2">
+        <div className="flex justify-center gap-6 mt-3">
+          <Link to="/privacy" className="text-[10px] uppercase tracking-widest text-gray-400 hover:text-[#8B1E1E] transition-colors">
+            Privacy Policy
+          </Link>
+          <Link to="/tos" className="text-[10px] uppercase tracking-widest text-gray-400 hover:text-[#8B1E1E] transition-colors">
+            Terms of Service
+          </Link>
+        </div>
+        <p className="text-xs text-gray-400 mt-3">
           Created by <span className="font-bold text-[#8b1e1e]">T-TLabs</span>
         </p>
       </footer>

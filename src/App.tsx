@@ -5,6 +5,8 @@ import AssessmentForm from './components/AssessmentForm';
 import AdminDashboard from './pages/AdminDashboard';
 import Calendar from './components/Calendar';
 import LandingPage from './pages/LandingPage';
+import PrivacyPolicy from './pages/PrivacyPolicy';
+import TermsOfService from './pages/TermsOfService';
 import { auth, signInWithGoogle } from './firebase';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { LogIn, ShieldCheck } from 'lucide-react';
@@ -118,6 +120,8 @@ function AppRoutes() {
           </Layout>
         }
       />
+      <Route path="/privacy" element={<PrivacyPolicy />} />
+      <Route path="/tos" element={<TermsOfService />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
