@@ -17,7 +17,9 @@ import { LogIn, ShieldCheck, Mail, Lock, AlertCircle } from 'lucide-react';
 import { handleOAuthCallback, storeTokens } from './services/gmail';
 import { I18nProvider, useI18n } from './i18n';
 
-function ProtectedRoute({ children, isAdmin, loading }: { children: React.ReactNode; isAdmin: boolean; loading: boolean }) {
+type Role = 'superadmin' | 'pastor';
+
+function ProtectedRoute({ children, hasAccess, loading }: { children: React.ReactNode; hasAccess: boolean; loading: boolean }) {
   const [user] = useAuthState(auth);
   const { t, dir } = useI18n();
   const [showEmailLogin, setShowEmailLogin] = useState(false);
@@ -121,7 +123,7 @@ function ProtectedRoute({ children, isAdmin, loading }: { children: React.ReactN
     );
   }
 
-  if (!isAdmin) {
+  if (!hasAccess) {
     return (
       <div className="max-w-md mx-auto py-24 text-center px-6" dir={dir} style={{ fontFamily: 'Arial, sans-serif' }}>
         <div className="w-20 h-20 bg-rose-50 rounded-3xl flex items-center justify-center mx-auto mb-8">
@@ -146,7 +148,7 @@ function ProtectedRoute({ children, isAdmin, loading }: { children: React.ReactN
 function AppRoutes() {
   const [user, authLoading] = useAuthState(auth);
   const location = useLocation();
-  const [admins, setAdmins] = useState<string[]>([]);
+  const [admins, setAdmins] = useState<Record<string, Role>>({});
   const [adminsLoaded, setAdminsLoaded] = useState(false);
 
   React.useEffect(() => {
@@ -165,11 +167,19 @@ function AppRoutes() {
     const unsubscribe = onValue(adminsRef, (snapshot) => {
       const data = snapshot.val();
       if (data) {
-        setAdmins(Object.keys(data).map(k => k.replace(/,/g, '.')));
+        const parsed: Record<string, Role> = {};
+        Object.keys(data).forEach(k => {
+          const email = k.replace(/,/g, '.');
+          const raw = data[k];
+          parsed[email] = raw === 'superadmin' ? 'superadmin' : 'pastor';
+        });
+        setAdmins(parsed);
       } else {
-        const defaults = ['georgejoseph5000@gmail.com', 'georgtawadrous@gmail.com', 'test@example.com'];
-        const init: Record<string, boolean> = {};
-        defaults.forEach(e => { init[e.toLowerCase().trim().replace(/\./g, ',')] = true; });
+        const defaults: Record<string, Role> = {};
+        defaults['georgejoseph5000@gmail.com'] = 'superadmin';
+        defaults['georgtawadrous@gmail.com'] = 'pastor';
+        const init: Record<string, string> = {};
+        Object.entries(defaults).forEach(([e, r]) => { init[e.toLowerCase().trim().replace(/\./g, ',')] = r; });
         set(ref(database, 'admins/'), init);
         setAdmins(defaults);
       }
@@ -179,7 +189,10 @@ function AppRoutes() {
   }, []);
 
   const appLoading = authLoading || !adminsLoaded;
-  const isAdmin = user?.email && admins.includes(user.email.toLowerCase().trim());
+  const userEmail = user?.email?.toLowerCase().trim() || '';
+  const role: Role | null = admins[userEmail] || null;
+  const isPastor = role === 'pastor' || role === 'superadmin';
+  const isSuperAdmin = role === 'superadmin';
 
   const getActiveTab = () => {
     const path = location.pathname;
@@ -196,9 +209,9 @@ function AppRoutes() {
       <Route
         path="/dashboard"
         element={
-          <Layout activeTab={getActiveTab()} isAdmin={!!isAdmin}>
-            <ProtectedRoute isAdmin={!!isAdmin} loading={appLoading}>
-              <AdminDashboard />
+          <Layout activeTab={getActiveTab()} isAdmin={!!isPastor}>
+            <ProtectedRoute hasAccess={!!isPastor} loading={appLoading}>
+              <AdminDashboard isSuperAdmin={!!isSuperAdmin} userEmail={userEmail} />
             </ProtectedRoute>
           </Layout>
         }
@@ -206,8 +219,8 @@ function AppRoutes() {
       <Route
         path="/calendar"
         element={
-          <Layout activeTab={getActiveTab()} isAdmin={!!isAdmin}>
-            <ProtectedRoute isAdmin={!!isAdmin} loading={appLoading}>
+          <Layout activeTab={getActiveTab()} isAdmin={!!isPastor}>
+            <ProtectedRoute hasAccess={!!isPastor} loading={appLoading}>
               <Calendar />
             </ProtectedRoute>
           </Layout>
@@ -216,8 +229,8 @@ function AppRoutes() {
       <Route
         path="/guide"
         element={
-          <Layout activeTab={getActiveTab()} isAdmin={!!isAdmin}>
-            <ProtectedRoute isAdmin={!!isAdmin} loading={appLoading}>
+          <Layout activeTab={getActiveTab()} isAdmin={!!isPastor}>
+            <ProtectedRoute hasAccess={!!isPastor} loading={appLoading}>
               <GuidePage />
             </ProtectedRoute>
           </Layout>
