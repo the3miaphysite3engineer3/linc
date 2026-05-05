@@ -17,6 +17,7 @@ import {
   type GmailTokens,
 } from '../services/gmail';
 import PageTitle from './PageTitle';
+import { useI18n } from '../i18n';
 
 interface Participant {
   id: string;
@@ -26,6 +27,7 @@ interface Participant {
 }
 
 export default function Calendar() {
+  const { t, dir } = useI18n();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [meetings, setMeetings] = useState<Meeting[]>([]);
   const [isAddOpen, setIsAddOpen] = useState(false);
@@ -197,7 +199,7 @@ export default function Calendar() {
       });
     } catch (err) {
       console.error(err);
-      alert('Failed to save meeting.');
+      alert(t('calendar.failed'));
     } finally {
       setLoading(false);
     }
@@ -220,10 +222,10 @@ export default function Calendar() {
     .map(p => p.name);
 
   return (
-    <div className="space-y-8" style={{ fontFamily: 'Arial, sans-serif' }}>
+    <div className="space-y-8" style={{ fontFamily: 'Arial, sans-serif' }} dir={dir}>
       <PageTitle
-        title="Pastor Calendar & Meeting Management"
-        subtitle="Schedule meetings, create Google Meet links, and notify participants"
+        title={t('calendar.title')}
+        subtitle={t('calendar.subtitle')}
         icon={<CalendarIcon size={22} />}
       />
 
@@ -231,7 +233,7 @@ export default function Calendar() {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-white p-6 rounded-3xl shadow-sm border border-gray-100 gap-4">
         <div>
           <h2 className="text-2xl font-bold text-[#1A1A1A]">{format(currentDate, 'MMMM yyyy')}</h2>
-          <p className="text-xs text-gray-400 uppercase tracking-widest mt-1">Pastor's Schedule</p>
+          <p className="text-xs text-gray-400 uppercase tracking-widest mt-1">{t('calendar.schedule')}</p>
         </div>
         <div className="flex items-center gap-4 flex-wrap">
           <div className="flex bg-stone-50 rounded-xl p-1 border border-gray-200">
@@ -242,12 +244,12 @@ export default function Calendar() {
             <div className="flex items-center gap-2">
               <span className="flex items-center gap-2 text-green-700 font-semibold bg-green-50 px-4 py-2 rounded-full border border-green-100 text-sm">
                 <Video size={14} />
-                Google Connected
+                {t('calendar.googleConnected')}
               </span>
               <button
                 onClick={() => { clearTokens(); setGoogleTokens(null); }}
                 className="p-2 text-gray-400 hover:text-red-500 transition-colors"
-                title="Disconnect"
+                title={t('calendar.disconnectGoogle')}
               >
                 <LogOut size={16} />
               </button>
@@ -258,7 +260,7 @@ export default function Calendar() {
               className="flex items-center gap-2 bg-[#8B1E1E] hover:bg-[#641414] text-white px-6 py-3 rounded-xl font-bold shadow transition-colors text-sm"
             >
               <Video size={16} />
-              Connect Google
+               {t('calendar.connectGoogle')}
             </button>
           )}
           <button
@@ -266,14 +268,14 @@ export default function Calendar() {
             className="flex items-center gap-2 bg-[#8B1E1E] text-white px-6 py-3 rounded-xl font-bold shadow-lg shadow-[#8B1E1E]/20 transition-all hover:scale-105 active:scale-95"
           >
             <Plus size={20} />
-            <span>Add Event</span>
+            <span>{t('calendar.addEvent')}</span>
           </button>
         </div>
       </div>
 
       {/* Calendar Grid */}
       <div className="grid grid-cols-1 md:grid-cols-7 gap-4">
-        {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(d => (
+        {[t('calendar.sun'), t('calendar.mon'), t('calendar.tue'), t('calendar.wed'), t('calendar.thu'), t('calendar.fri'), t('calendar.sat')].map(d => (
           <div key={d} className="text-center text-[10px] uppercase tracking-widest text-gray-400 font-bold hidden md:block">{d}</div>
         ))}
         {days.map((day, i) => {
@@ -325,10 +327,10 @@ export default function Calendar() {
 
       {/* Upcoming Meetings List */}
       <section className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100">
-        <h3 className="text-xl font-bold mb-6 flex items-center gap-2 text-[#8B1E1E]">
-          <Clock size={20} />
-          Upcoming Meetings
-        </h3>
+          <h3 className="text-xl font-bold mb-6 flex items-center gap-2 text-[#8B1E1E]">
+            <Clock size={20} />
+            {t('calendar.upcoming')}
+          </h3>
         <div className="space-y-4">
           {meetings.filter(m => {
             if (!m.date) return false;
@@ -376,7 +378,7 @@ export default function Calendar() {
             if (!m.date) return false;
             try { return parseISO(m.date) >= new Date(); } catch { return false; }
           }).length === 0 && (
-            <div className="text-center py-12 text-gray-400 italic">No upcoming meetings</div>
+            <div className="text-center py-12 text-gray-400 italic">{t('calendar.noUpcoming')}</div>
           )}
         </div>
       </section>
@@ -386,36 +388,36 @@ export default function Calendar() {
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
           <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="bg-white w-full max-w-xl rounded-3xl shadow-2xl overflow-hidden max-h-[90vh] overflow-y-auto">
             <div className="p-6 border-b flex justify-between items-center bg-stone-50 sticky top-0 z-10">
-              <h3 className="text-xl font-bold">{editingMeeting ? 'Edit' : 'Add'} Meeting</h3>
+              <h3 className="text-xl font-bold">{editingMeeting ? t('calendar.update') : t('calendar.create')}</h3>
               <button onClick={() => setIsAddOpen(false)} className="p-2 hover:bg-gray-200 rounded-full transition-colors"><X size={20} /></button>
             </div>
             <form onSubmit={handleCreate} className="p-6 space-y-4">
               <div className="space-y-1">
-                <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">Title</label>
+                <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">{t('calendar.titleField')}</label>
                 <input required type="text" className="w-full px-4 py-3 bg-stone-50 border-none rounded-xl focus:ring-2 focus:ring-[#8B1E1E]/20 outline-none" value={newMeeting.title} onChange={e => setNewMeeting(p => ({ ...p, title: e.target.value }))} />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1">
-                  <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">Date</label>
+                  <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">{t('calendar.dateField')}</label>
                   <input required type="date" className="w-full px-4 py-3 bg-stone-50 border-none rounded-xl focus:ring-2 focus:ring-[#8B1E1E]/20 outline-none" value={newMeeting.date} onChange={e => setNewMeeting(p => ({ ...p, date: e.target.value }))} />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">Type</label>
-                  <select className="w-full px-4 py-3 bg-stone-50 border-none rounded-xl focus:ring-2 focus:ring-[#8B1E1E]/20 outline-none" value={newMeeting.type} onChange={e => setNewMeeting(p => ({ ...p, type: e.target.value as any }))}>
-                    <option value="service">Service</option>
-                    <option value="prayer">Prayer</option>
-                    <option value="counseling">Counseling</option>
-                    <option value="other">Other</option>
-                  </select>
+                  <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">{t('calendar.typeField')}</label>
+                   <select className="w-full px-4 py-3 bg-stone-50 border-none rounded-xl focus:ring-2 focus:ring-[#8B1E1E]/20 outline-none" value={newMeeting.type} onChange={e => setNewMeeting(p => ({ ...p, type: e.target.value as any }))}>
+                     <option value="service">{t('calendar.service')}</option>
+                     <option value="prayer">{t('calendar.prayer')}</option>
+                     <option value="counseling">{t('calendar.counseling')}</option>
+                     <option value="other">{t('calendar.other')}</option>
+                   </select>
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1">
-                  <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">Start</label>
+                  <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">{t('calendar.startTime')}</label>
                   <input required type="time" className="w-full px-4 py-3 bg-stone-50 border-none rounded-xl focus:ring-2 focus:ring-[#8B1E1E]/20 outline-none" value={newMeeting.startTime} onChange={e => setNewMeeting(p => ({ ...p, startTime: e.target.value }))} />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">End</label>
+                  <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">{t('calendar.endTime')}</label>
                   <input required type="time" className="w-full px-4 py-3 bg-stone-50 border-none rounded-xl focus:ring-2 focus:ring-[#8B1E1E]/20 outline-none" value={newMeeting.endTime} onChange={e => setNewMeeting(p => ({ ...p, endTime: e.target.value }))} />
                 </div>
               </div>
@@ -423,7 +425,7 @@ export default function Calendar() {
               {/* Participants Dropdown */}
               {participants.length > 0 && (
                 <div className="space-y-1">
-                  <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">Participants</label>
+                  <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">{t('calendar.participants')}</label>
                   <div className="relative">
                     <button
                       type="button"
@@ -434,8 +436,8 @@ export default function Calendar() {
                         <Users size={16} className="text-gray-400 flex-shrink-0" />
                         <span className="truncate text-sm">
                           {selectedCount === 0
-                            ? 'Select participants...'
-                            : `${selectedCount} selected`
+                            ? t('calendar.selectParticipants')
+                            : `${selectedCount} ${t('calendar.selected')}`
                           }
                         </span>
                       </div>
@@ -445,7 +447,7 @@ export default function Calendar() {
                     {showParticipantDropdown && (
                       <div className="absolute z-20 w-full mt-1 bg-white border border-gray-200 rounded-xl shadow-xl max-h-60 overflow-y-auto">
                         <div className="p-2 border-b bg-stone-50 rounded-t-xl flex justify-between items-center">
-                          <span className="text-xs font-bold text-gray-500 uppercase">{participants.length} trainees</span>
+                          <span className="text-xs font-bold text-gray-500 uppercase">{participants.length} {t('calendar.trainees')}</span>
                           <button
                             type="button"
                             onClick={() => setSelectedParticipants(participants.map(p => p.id))}
@@ -495,7 +497,7 @@ export default function Calendar() {
               {/* Google Meet */}
               <div className="space-y-1">
                 <div className="flex justify-between items-center">
-                  <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">Google Meet Link</label>
+                  <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">{t('calendar.meetLink')}</label>
                   <div className="flex gap-4">
                     {googleTokens ? (
                       <button
@@ -506,7 +508,7 @@ export default function Calendar() {
                             const { meetLink } = await createCalendarMeetLink(googleTokens, newMeeting.title || 'Meeting', newMeeting.date || '', newMeeting.startTime || '', newMeeting.endTime || '');
                             setNewMeeting(p => ({ ...p, meetLink }));
                           } catch (err: any) {
-                            alert(err.message || 'Failed to create Meet link.');
+                            alert(err.message || t('calendar.failedMeet'));
                             setGoogleTokens(null);
                           } finally {
                             setLoading(false);
@@ -516,7 +518,7 @@ export default function Calendar() {
                         disabled={loading}
                       >
                         <Wand2 size={10} />
-                        Create Real Meet
+                        {t('calendar.createMeet')}
                       </button>
                     ) : (
                       <button
@@ -525,7 +527,7 @@ export default function Calendar() {
                         className="flex items-center gap-1 text-[10px] font-bold text-amber-600 hover:underline"
                       >
                         <Wand2 size={10} />
-                        Connect for Real Meet
+                        {t('calendar.authForMeet')}
                       </button>
                     )}
                     <button
@@ -537,7 +539,7 @@ export default function Calendar() {
                       className="flex items-center gap-1 text-[10px] font-bold text-[#8B1E1E] hover:underline"
                     >
                       <Wand2 size={10} />
-                      Generate Placeholder
+                      {t('calendar.genFake')}
                     </button>
                   </div>
                 </div>
@@ -559,17 +561,17 @@ export default function Calendar() {
               {emailSent && (
                 <div className="flex items-center gap-2 text-green-700 bg-green-50 px-4 py-3 rounded-xl border border-green-100">
                   <Check size={16} />
-                  <span className="text-sm font-bold">Meeting saved & emails sent to {selectedCount} participant{selectedCount !== 1 ? 's' : ''}!</span>
+                  <span className="text-sm font-bold">{t('calendar.meetingSaved')} ({selectedCount})!</span>
                 </div>
               )}
 
               <button disabled={loading} type="submit" className="w-full py-4 bg-[#8B1E1E] text-white rounded-2xl font-bold shadow-xl shadow-[#8B1E1E]/10 hover:scale-[1.02] active:scale-98 transition-all flex items-center justify-center gap-2">
                 {loading ? (
-                  <>Saving...</>
+                  <>{t('calendar.saving')}</>
                 ) : (
                   <>
                     <Send size={16} />
-                    {editingMeeting ? 'Update Meeting' : 'Create & Notify'}
+                    {editingMeeting ? t('calendar.update') : t('calendar.create')}
                   </>
                 )}
               </button>
