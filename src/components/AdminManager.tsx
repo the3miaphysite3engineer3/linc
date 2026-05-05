@@ -26,8 +26,7 @@ export default function AdminManager({ onAdminsLoaded, currentEmail }: { onAdmin
         Object.keys(data).forEach(k => {
           const email = k.replace(/,/g, '.');
           const raw = data[k];
-          const role: Role = raw === 'superadmin' ? 'superadmin' : 'pastor';
-          parsed[email] = role;
+          parsed[email] = raw === 'superadmin' ? 'superadmin' : 'pastor';
         });
         setAdmins(parsed);
         onAdminsLoaded(parsed);

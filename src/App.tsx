@@ -190,9 +190,9 @@ function AppRoutes() {
 
   const appLoading = authLoading || !adminsLoaded;
   const userEmail = user?.email?.toLowerCase().trim() || '';
-  const role: Role | null = admins[userEmail] || null;
-  const isPastor = role === 'pastor' || role === 'superadmin';
-  const isSuperAdmin = role === 'superadmin';
+  const adminRole = admins[userEmail];
+  const isPastor = !!adminRole;
+  const isSuperAdmin = adminRole === 'superadmin';
 
   const getActiveTab = () => {
     const path = location.pathname;
