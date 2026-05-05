@@ -19,7 +19,7 @@ import { I18nProvider, useI18n } from './i18n';
 
 type Role = 'superadmin' | 'pastor';
 
-function ProtectedRoute({ children, hasAccess, loading }: { children: React.ReactNode; hasAccess: boolean; loading: boolean }) {
+function ProtectedRoute({ children, hasAccess, loading, fallbackUrl }: { children: React.ReactNode; hasAccess: boolean; loading: boolean; fallbackUrl?: string }) {
   const [user] = useAuthState(auth);
   const { t, dir } = useI18n();
   const [showEmailLogin, setShowEmailLogin] = useState(false);
@@ -124,6 +124,9 @@ function ProtectedRoute({ children, hasAccess, loading }: { children: React.Reac
   }
 
   if (!hasAccess) {
+    if (fallbackUrl && user) {
+      return <Navigate to={fallbackUrl} replace />;
+    }
     return (
       <div className="max-w-md mx-auto py-24 text-center px-6" dir={dir} style={{ fontFamily: 'Arial, sans-serif' }}>
         <div className="w-20 h-20 bg-rose-50 rounded-3xl flex items-center justify-center mx-auto mb-8">
@@ -212,7 +215,7 @@ function AppRoutes() {
         path="/dashboard"
         element={
           <Layout activeTab={getActiveTab()} isAdmin={!!isSuperAdmin} isSuperAdmin={!!isSuperAdmin}>
-            <ProtectedRoute hasAccess={!!isSuperAdmin} loading={appLoading}>
+            <ProtectedRoute hasAccess={!!isSuperAdmin} loading={appLoading} fallbackUrl={isPastor ? "/calendar" : undefined}>
               <AdminDashboard isSuperAdmin={!!isSuperAdmin} userEmail={userEmail} />
             </ProtectedRoute>
           </Layout>
