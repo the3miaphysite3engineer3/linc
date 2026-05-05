@@ -43,4 +43,16 @@ export interface Meeting {
   updatedAt: number;
 }
 
+export interface MeetingRequest {
+  id?: string;
+  name: string;
+  email: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  reason: string;
+  status: 'pending' | 'accepted' | 'rejected';
+  createdAt: number;
+}
+
 export type Language = 'English' | 'Arabic';

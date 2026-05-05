@@ -1,13 +1,15 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'motion/react';
-import { ClipboardList, LogIn, ArrowRight, Heart, BookOpen, Users, Star, Globe } from 'lucide-react';
+import { ClipboardList, LogIn, ArrowRight, Heart, BookOpen, Users, Star, Globe, Calendar as CalendarIcon } from 'lucide-react';
 import { useI18n } from '../i18n';
+import BookMeeting from '../components/BookMeeting';
 
 export default function LandingPage() {
   const navigate = useNavigate();
   const { t, dir, locale, setLocale } = useI18n();
   const [scrollY, setScrollY] = useState(0);
+  const [showBooking, setShowBooking] = useState(false);
 
   useEffect(() => {
     document.title = locale === 'ar' ? 'تقييم المواهب الروحية - LINC' : 'LINC Spiritual Gifts Assessment';
@@ -83,6 +85,13 @@ export default function LandingPage() {
                 {t('landing.adminLogin')}
               </button>
             </div>
+            <button
+              onClick={() => setShowBooking(true)}
+              className="mt-6 inline-flex items-center gap-3 min-h-[52px] px-8 bg-stone-100 text-[#8b1e1e] rounded-full font-bold transition-transform hover:-translate-y-[2px] hover:bg-stone-200"
+            >
+              <CalendarIcon size={18} />
+              {t('landing.bookMeeting')}
+            </button>
           </motion.div>
         </div>
       </section>
@@ -201,6 +210,8 @@ export default function LandingPage() {
         <p className="text-sm italic">{t('footer.tagline')}</p>
         <p className="text-xs mt-2 text-white/30">{t('landing.program')}</p>
       </footer>
+
+      <BookMeeting isOpen={showBooking} onClose={() => setShowBooking(false)} />
     </div>
   );
 }
