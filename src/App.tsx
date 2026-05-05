@@ -193,8 +193,8 @@ function AppRoutes() {
   const userEmail = user?.email?.toLowerCase().trim() || '';
   const adminRole = admins[userEmail];
   console.log('Auth user:', userEmail, 'Admins in DB:', admins, 'Role:', adminRole);
-  const isPastor = !!adminRole || userEmail.includes('tawadrous') || userEmail === 'georgejoseph5000@gmail.com' || userEmail === 'georgtawadrous@gmail.com' || userEmail === 'georgetawadrous@gmail.com';
-  const isSuperAdmin = adminRole === 'superadmin' || userEmail === 'georgejoseph5000@gmail.com' || userEmail === 'georgtawadrous@gmail.com' || userEmail === 'georgetawadrous@gmail.com';
+  const isPastor = (adminRole === 'pastor');
+  const isSuperAdmin = adminRole === 'superadmin';
 
   const getActiveTab = () => {
     const path = location.pathname;
