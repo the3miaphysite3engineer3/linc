@@ -246,6 +246,16 @@ export default function Calendar() {
       if (status === 'accepted') {
         const req = meetingRequests.find(r => r.id === id);
         if (req) {
+          let meetLink = generatePlaceholderLink();
+          if (googleTokens) {
+            try {
+              const created = await createCalendarMeetLink(googleTokens, `Meeting with ${req.name}`, req.date, req.startTime, req.endTime);
+              meetLink = created.meetLink;
+            } catch (err) {
+              console.error('Failed to create real Meet link, using placeholder:', err);
+            }
+          }
+
           const { push } = await import('firebase/database');
           await push(ref(database, 'meetings/'), {
             title: `Meeting with ${req.name}`,
@@ -253,33 +263,37 @@ export default function Calendar() {
             startTime: req.startTime,
             endTime: req.endTime,
             location: '',
-            meetLink: '',
+            meetLink,
             type: 'counseling',
             participantIds: [],
             updatedAt: Date.now(),
           });
-          if (googleTokens) {
-            try {
-              await sendGmailEmail(
-                googleTokens,
-                req.email,
-                t('booking.acceptedEmailSubject'),
-                `<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:24px;background:#f5f4f0;border-radius:22px;">
+
+          try {
+            const tokens = googleTokens || getStoredTokens();
+            if (tokens) {
+              const emailHtml = `
+                <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:24px;background:#f5f4f0;border-radius:22px;">
                   <div style="background:#8b1e1e;color:white;padding:16px;border-radius:14px;text-align:center;margin-bottom:20px;">
                     <h1 style="margin:0;font-size:20px;">${t('booking.acceptedEmailTitle')}</h1>
                   </div>
                   <p style="color:#333;font-size:15px;">Dear ${req.name},</p>
                   <p style="color:#555;font-size:14px;">${t('booking.acceptedEmailBody')}</p>
                   <div style="background:white;padding:16px;border-radius:14px;border:1px solid #e5e5e5;margin-bottom:16px;">
+                    <p style="margin:4px 0;font-size:14px;"><strong>Meeting:</strong> Meeting with Pastor</p>
                     <p style="margin:4px 0;font-size:14px;"><strong>Date:</strong> ${format(parseISO(req.date), 'EEEE, MMMM d, yyyy')}</p>
                     <p style="margin:4px 0;font-size:14px;"><strong>Time:</strong> ${req.startTime} - ${req.endTime}</p>
+                    ${req.reason ? `<p style="margin:4px 0;font-size:14px;"><strong>Reason:</strong> ${req.reason}</p>` : ''}
+                    ${meetLink ? `<p style="margin:8px 0;font-size:14px;"><strong>Google Meet:</strong> <a href="${meetLink}" style="color:#8b1e1e;font-weight:bold;">Join Meeting</a></p>` : ''}
                   </div>
                   <p style="color:#999;font-size:12px;margin-top:24px;">God bless.</p>
-                </div>`
-              );
-            } catch (emailErr) {
-              console.error('Failed to send acceptance email:', emailErr);
+                </div>
+              `.trim();
+
+              await sendGmailEmail(tokens, req.email, t('booking.acceptedEmailSubject'), emailHtml);
             }
+          } catch (emailErr) {
+            console.error('Failed to send acceptance email:', emailErr);
           }
         }
       }

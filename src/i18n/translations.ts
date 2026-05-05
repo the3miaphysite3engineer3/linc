@@ -6,6 +6,7 @@ export const translations: Record<string, { en: string; ar: string }> = {
   'nav.assessment': { en: 'Assessment', ar: 'التقييم' },
   'nav.results': { en: 'Results', ar: 'النتائج' },
   'nav.calendar': { en: 'Calendar', ar: 'التقويم' },
+  'nav.guide': { en: 'Guide', ar: 'الدليل' },
   'nav.signOut': { en: 'Sign Out', ar: 'تسجيل الخروج' },
   'footer.tagline': { en: 'LINC Spiritual Gifts & Personal Calling Assessment', ar: 'تقييم المواهب الروحية والدعوة الشخصية' },
   'footer.privacy': { en: 'Privacy Policy', ar: 'سياسة الخصوصية' },
@@ -32,7 +33,7 @@ export const translations: Record<string, { en: string; ar: string }> = {
   'landing.aboutLINC': { en: 'About LINC', ar: 'عن LINC' },
   'landing.aboutLINCDesc': { en: 'LINC (Leadership in Christ) is committed to developing faithful, equipped leaders for the church. This assessment helps identify how God has uniquely gifted each trainee.', ar: 'LINC (القيادة في المسيح) ملتزمة بتطوير قادة أمناء ومجهزين للكنيسة. يساعد هذا التقييم في تحديد كيف وهب الله كل متدرب بشكل فريد.' },
 
-  // AssessmentForm (section headers already in code as bilingual data)
+  // AssessmentForm
   'assessment.title': { en: 'LINC Spiritual Gifts & Personal Calling Assessment', ar: 'تقييم المواهب الروحية والدعوة الشخصية - LINC' },
   'assessment.program': { en: 'Leadership Development Program | 2026–2028', ar: 'برنامج تطوير القيادة | 2026–2028' },
   'assessment.switchLang': { en: 'العربية', ar: 'English' },
@@ -53,6 +54,99 @@ export const translations: Record<string, { en: string; ar: string }> = {
   'assessment.completeFields': { en: 'Please complete all required fields.', ar: 'يرجى إكمال جميع الحقول المطلوبة.' },
   'assessment.failed': { en: 'Submission failed.', ar: 'فشل إرسال التقييم.' },
   'assessment.optional': { en: 'Optional', ar: 'اختياري' },
+  'assessment.summaryPrefix': { en: 'The strongest result is', ar: 'أقوى نتيجة هي' },
+  'assessment.summaryMid': { en: 'The secondary result is', ar: 'النتيجة الثانوية هي' },
+  'assessment.summarySuffix': { en: 'The most aligned ministry area is', ar: 'مجال الخدمة الأكثر توافقاً هو' },
+  'assessment.traineeInfo': { en: 'Trainee Information', ar: 'معلومات المتدرب' },
+  'assessment.part1': { en: 'Part One — Faith Journey and Walk with God', ar: 'الجزء الأول — الرحلة الإيمانية والمسيرة مع الله' },
+  'assessment.part2': { en: 'Part Two — Personal Gifts Assessment', ar: 'الجزء الثاني — تقييم المواهب الشخصية' },
+  'assessment.part3': { en: 'Part Three — Ministry Alignment and Experience', ar: 'الجزء الثالث — التوافق والخبرة نحو الخدمة' },
+  'assessment.part4': { en: 'Part Four — Calling and Vision Questions', ar: 'الجزء الرابع — أسئلة الدعوة والرؤية' },
+  'assessment.giftScores': { en: 'Gift Scores', ar: 'نتائج المواهب' },
+  'assessment.ministryScores': { en: 'Ministry Scores', ar: 'نتائج مجالات الخدمة' },
+  'assessment.assessmentResults': { en: 'Assessment Results', ar: 'نتائج التقييم' },
+
+  // Gift Sections
+  'gift.A.title': { en: 'Apostolic Gift / Pioneering Ministry', ar: 'عَطيّة الرسولية / الخدمة الرائدة' },
+  'gift.A1': { en: 'I have vision and can see what a group or church could become in the future.', ar: 'أمتلك رؤية ثاقبة، فأستطيع أن أرى ما يمكن أن تصبح عليه أي مجموعة أو كنيسة في المستقبل.' },
+  'gift.A2': { en: 'I feel driven to build new things, start new ministries, or pioneer new areas.', ar: 'أشعر بدافع قوي لبناء أشياء جديدة، وتأسيس خدمات جديدة، أو الريادة في مجالات لم يسبقني إليها الآخرون.' },
+  'gift.A3': { en: 'I naturally take initiative in unstructured situations and help establish order and direction.', ar: 'بأسلوب طبيعي أتولى زمام الأمور في المواقف غير المنظمة، وأساعد في إرساء النظام والتوجيه.' },
+  'gift.A4': { en: 'People see me as a leader even when I do not have an official title.', ar: 'ينظر إليّ الناس كقائد حتى عندما لا يكون لديّ لقب أو منصب رسمي.' },
+  'gift.A5': { en: 'I care deeply about the health, growth, and management of the whole church, not only one area.', ar: 'أشعر باهتمام بالغ إزاء صحة نمو وإدارة الكنيسة بأكملها، وليس في منطقة واحدة فقط.' },
+
+  'gift.B.title': { en: 'Prophetic Gift / Intercession Heart', ar: 'عَطيّة النبوة / قلب الشفاعة' },
+  'gift.B1': { en: 'I am strongly drawn to long times of prayer; it feels natural rather than forced.', ar: 'أجد نفسي منجذباً بشدة إلى أوقات الصلاة الطويلة، وأشعر أنها طبيعية وليست واجباً مفروضاً.' },
+  'gift.B2': { en: 'I often feel God speaks to me through Scripture, prayer, visions, dreams, or impressions.', ar: 'أشعر في كثير من الأحيان أن الله يخاطبني من خلال الكتاب المقدس أو الصلاة أو الرؤى والأحلام أو الانطباعات.' },
+  'gift.B3': { en: 'I feel a strong burden to intercede for people, situations, or places.', ar: 'أشعر بعبء قوي للتضرع من أجل الناس أو المواقف أو الأماكن.' },
+  'gift.B4': { en: 'I sometimes receive words of encouragement, visions, dreams, or guidance for others that prove accurate.', ar: 'أتلقى أحياناً إعلانات أو كلمات تشجيع أو رؤى أو أحلام أو توجيهات للآخرين تثبت صحتها.' },
+  'gift.B5': { en: 'I am sensitive to spiritual atmospheres and notice when something feels spiritually wrong.', ar: 'أنا حساس للأجواء الروحية وألاحظ عندما يكون هناك شيء غير طبيعي في الجو الروحي.' },
+
+  'gift.C.title': { en: 'Evangelistic Gift / Sharing Jesus with the Lost', ar: 'عَطيّة التبشير / مشاركة يسوع مع الضالين' },
+  'gift.C1': { en: 'I feel urgency for people around me to know Jesus.', ar: 'أشعر برغبة ملحة وثقل في أن يعرف الناس من حولي يسوع.' },
+  'gift.C2': { en: 'Speaking about my faith with unbelievers feels natural and joyful.', ar: 'أجد أنه من الطبيعي والمفرح أن أتحدث عن إيماني مع أشخاص لا يعرفون المسيح.' },
+  'gift.C3': { en: 'My conversations with non-Christians naturally move toward spiritual topics.', ar: 'أجد أن محادثاتي مع غير المسيحيين تتجه بشكل طبيعي نحو المواضيع الروحية.' },
+  'gift.C4': { en: 'When I hear the gospel presented, I feel strongly moved to invite people to respond.', ar: 'عندما أسمع تقديم الإنجيل، أشعر برغبة قوية في دعوة الناس للاستجابة.' },
+  'gift.C5': { en: 'I feel concerned when the church does not reach out to the lost.', ar: 'أشعر بالحزن والقلق عندما لا تبذل كنيستي جهداً للتواصل مع الضالين.' },
+
+  'gift.D.title': { en: 'Pastoral Gift / Shepherd Heart', ar: 'عَطيّة الرعاية / قلب الراعي' },
+  'gift.D1': { en: 'I naturally notice when someone is hurting, isolated, or struggling.', ar: 'ألاحظ بشكل طبيعي عندما يكون شخص ما متألماً أو منعزلاً أو يعاني من مشكلة.' },
+  'gift.D2': { en: 'People often come to me to share problems, ask advice, or be heard.', ar: 'كثيراً ما يأتي إليّ الناس ليشاركوا مشاكلهم أو يطلبوا النصيحة أو يجدوا من يستمع إليهم.' },
+  'gift.D3': { en: 'I find deep fulfillment walking with someone over time as they grow and heal.', ar: 'أجد شبعاً عميقاً في مرافقة شخص ما على مدى فترة طويلة أثناء نموه وتعافيه.' },
+  'gift.D4': { en: 'I feel protective responsibility toward people I care for.', ar: 'أشعر بالتزام تقديم الحماية تجاه الأشخاص الذين أهتم لأمرهم.' },
+  'gift.D5': { en: 'I feel responsible toward the vulnerable, children, elderly, isolated, and broken.', ar: 'أشعر بمسؤولية تجاه الضعفاء: الأطفال، وكبار السن، والمنعزلين، والمكسورين.' },
+
+  'gift.E.title': { en: 'Teaching Gift / Training and Methodology', ar: 'عَطيّة التعليم / التدريب والمنهجية' },
+  'gift.E1': { en: 'I love studying Scripture deeply to understand meaning, context, and theology.', ar: 'أحب دراسة الكتاب المقدس بعمق لفهم المعنى والسياق واللاهوت الكامن وراء النص.' },
+  'gift.E2': { en: 'When I learn something from Scripture, I immediately want to explain it to someone else.', ar: 'عندما أتعلم شيئاً جديداً من الكتاب المقدس، أرغب فوراً في شرحه أو تعليمه لشخص آخر.' },
+  'gift.E3': { en: 'Biblical accuracy matters deeply to me, and I notice incorrect teaching.', ar: 'الدقة الكتابية مهمة للغاية بالنسبة لي، وألاحظ التعليم غير الصحيح أو غير الدقيق.' },
+  'gift.E4': { en: 'I enjoy helping others understand complex truths clearly and simply.', ar: 'أجد متعة كبيرة في مساعدة الآخرين على فهم الحقائق المعقدة بطريقة بسيطة وواضحة.' },
+  'gift.E5': { en: 'I naturally prepare, structure, and organize teaching content.', ar: 'أميل بطبيعتي إلى إعداد محتوى التدريس وهيكلته وتنظيمه.' },
+
+  // Gift Recommendations
+  'giftRec.A': { en: 'Apostolic / Pioneering Leadership', ar: 'قيادة رسولية / خدمة رائدة' },
+  'giftRec.B': { en: 'Prophetic / Intercession Ministry', ar: 'خدمة نبوية / شفاعة' },
+  'giftRec.C': { en: 'Evangelism and Outreach', ar: 'التبشير والكرازة' },
+  'giftRec.D': { en: 'Pastoral Care and Shepherding', ar: 'الرعاية الروحية وقلب الراعي' },
+  'giftRec.E': { en: 'Teaching, Training, and Discipleship', ar: 'التعليم والتدريب والتلمذة' },
+
+  // Ministry Areas
+  'ministry.F1': { en: 'Prayer and Intercession', ar: 'الصلاة والشفاعة' },
+  'ministry.F2': { en: 'Evangelism and Outreach', ar: 'التبشير والتواصل' },
+  'ministry.F3': { en: 'Bible Teaching and Discipleship', ar: 'تعليم الكتاب المقدس والتلمذة' },
+  'ministry.F4': { en: 'Spiritual Care and Follow-up', ar: 'الرعاية الروحية والمتابعة' },
+  'ministry.F5': { en: 'Worship', ar: 'العبادة' },
+  'ministry.F6': { en: "Children's Ministry", ar: 'خدمة الأطفال' },
+  'ministry.F7': { en: 'Youth Ministry', ar: 'خدمة الشباب' },
+  'ministry.F8': { en: 'Media and Technology', ar: 'الإعلام والتكنولوجيا' },
+  'ministry.F9': { en: 'Administration and Oversight', ar: 'الإدارة والإشراف' },
+  'ministry.F10': { en: 'Hospitality and Welcome', ar: 'الضيافة والترحيب' },
+
+  // Text/Faith Journey Questions
+  'faith.q1_1': { en: 'Briefly describe how you came to faith in Jesus Christ.', ar: 'صف بإيجاز كيف تعرفت على الإيمان بيسوع المسيح.' },
+  'faith.q1_2': { en: 'What does your daily devotional life look like now?', ar: 'كيف تبدو حياتك التعبدية اليومية الآن؟' },
+  'faith.q1_3': { en: 'What is your biggest challenge in your Christian life now?', ar: 'ما هو أكبر تحدٍ أو صراع في حياتك المسيحية الآن؟' },
+  'faith.q1_4': { en: 'Which biblical character do you feel closest to, and why?', ar: 'أي شخصية في الكتاب المقدس تشعر بأنك الأقرب إليها، ولماذا؟' },
+  'faith.q1_5': { en: 'How do people who know you well describe you?', ar: 'كيف يصفك الأشخاص الذين يعرفونك جيدًا؟' },
+
+  // Vision Questions
+  'vision.v1': { en: 'If you could do one thing for the Kingdom of God without limits, what would it be?', ar: 'إذا كان بإمكانك أن تفعل شيئًا واحدًا من أجل ملكوت الله دون قيود، فماذا سيكون؟' },
+  'vision.v2': { en: 'What grieves you? What injustice, suffering, or spiritual need moves you deeply?', ar: 'ما الذي يحزنك؟ ما هو الظلم أو المعاناة أو الحاجة الروحية التي تجعلك غاضباً أو تدفعك إلى البكاء؟' },
+  'vision.v3': { en: 'When do you feel most spiritually alive?', ar: 'متى تشعر بأنك أكثر حيوية روحياً؟' },
+  'vision.v4': { en: 'Which ministry area are you most drawn to in this program, and why?', ar: 'ما هو مجال الخدمة الذي تشعر بأنك منجذب إليه أكثر في هذا البرنامج، ولماذا؟' },
+  'vision.v5': { en: 'What is your greatest fear about serving in ministry leadership?', ar: 'ما هو أكبر مخاوفك بشأن العمل في قيادة الخدمة؟' },
+  'vision.v6': { en: 'Is there anything in your life or past that may be an obstacle to your calling? (Optional)', ar: 'هل هناك أي جانب من جوانب حياتك أو ماضيك تشعر أنه قد يشكل عائقاً أمام تحقيق رسالتك؟ (اختياري)' },
+
+  // Trainee Fields
+  'trainee.fullName': { en: 'Full Name', ar: 'الاسم الكامل' },
+  'trainee.email': { en: 'Email Address', ar: 'البريد الإلكتروني' },
+  'trainee.surveyDate': { en: 'Survey Date', ar: 'تاريخ الاستبيان' },
+  'trainee.age': { en: 'Age', ar: 'العمر' },
+  'trainee.attendance': { en: 'How long have you attended LINC churches, and in which city?', ar: 'منذ متى وأنت تحضر إلى كنائس LINC؟ وفي أي مدينة؟' },
+  'trainee.currentService': { en: 'Current service at LINC churches, if any', ar: 'خدمتك الحالية في كنائس LINC، إن وجدت' },
+  'trainee.workContext': { en: 'Job / Work Context', ar: 'وظيفتك / سياق عملك' },
+  'trainee.arabicFluency': { en: 'Arabic Fluency', ar: 'الطلاقة في العربية' },
+  'trainee.englishFluency': { en: 'English Fluency', ar: 'الطلاقة في الإنجليزية' },
+  'trainee.otherLanguages': { en: 'Other Languages', ar: 'لغات أخرى' },
 
   // AdminDashboard
   'dashboard.title': { en: 'Pastor Dashboard — Assessment Results', ar: 'لوحة تحكم الراعي — نتائج التقييم' },
@@ -245,4 +339,39 @@ export const translations: Record<string, { en: string; ar: string }> = {
   'requests.reason': { en: 'Reason', ar: 'السبب' },
   'requests.viewAll': { en: 'View All Requests', ar: 'عرض جميع الطلبات' },
   'requests.hide': { en: 'Hide', ar: 'إخفاء' },
+
+  // Guide Page
+  'guide.title': { en: 'Pastor Dashboard Guide', ar: 'دليل لوحة تحكم الراعي' },
+  'guide.subtitle': { en: 'Everything you need to know to manage your leadership dashboard effectively.', ar: 'كل ما تحتاج معرفته لإدارة لوحة تحكم القيادة بفعالية.' },
+  'guide.authTitle': { en: 'Authentication & Security', ar: 'المصادقة والأمان' },
+  'guide.authDesc': { en: 'Access the dashboard securely using Google Sign-In or Email/Password.', ar: 'الوصول إلى لوحة التحكم بأمان عبر تسجيل الدخول عبر Google أو البريد الإلكتروني وكلمة المرور.' },
+  'guide.authDetail1': { en: 'Only authorized admin emails can access the Dashboard and Calendar.', ar: 'يمكن لبريدات الإداريين المصرح بها فقط الوصول إلى لوحة التحكم والتقويم.' },
+  'guide.authDetail2': { en: 'You can sign out at any time using the logout button in the navigation bar.', ar: 'يمكنك تسجيل الخروج في أي وقت باستخدام زر تسجيل الخروج في شريط التنقل.' },
+
+  'guide.assessmentTitle': { en: 'Assessment Results', ar: 'نتائج التقييم' },
+  'guide.assessmentDesc': { en: 'Review spiritual gift assessments submitted by trainees.', ar: 'مراجعة تقييمات المواهب الروحية المقدمة من المتدربين.' },
+  'guide.assessmentDetail1': { en: 'Use the search bar to find trainees by name.', ar: 'استخدم شريط البحث للعثور على المتدربين بالاسم.' },
+  'guide.assessmentDetail2': { en: 'Click on any trainee to view their full report including primary/secondary gifts and ministry alignment.', ar: 'انقر على أي متدرب لعرض تقريره الكامل بما في ذلك المواهب الأساسية والثانوية والتوافق مع الخدمة.' },
+  'guide.assessmentDetail3': { en: 'Results are automatically scored and categorized by spiritual gift areas.', ar: 'يتم تسجيل النتائج وتصنيفها تلقائياً حسب مجالات المواهب الروحية.' },
+
+  'guide.calendarTitle': { en: 'Calendar & Meetings', ar: 'التقويم والاجتماعات' },
+  'guide.calendarDesc': { en: 'Manage your schedule, create meetings, and connect with participants.', ar: 'إدارة جدولك وإنشاء الاجتماعات والتواصل مع المشاركين.' },
+  'guide.calendarDetail1': { en: 'Click "Add Event" to create a new meeting. Fill in details, select participants, and save.', ar: 'انقر على "إضافة حدث" لإنشاء اجتماع جديد. املأ التفاصيل واختر المشاركين واحفظ.' },
+  'guide.calendarDetail2': { en: 'Connect your Google account to create real Google Meet links automatically.', ar: 'اربط حساب Google الخاص بك لإنشاء روابط Google Meet حقيقية تلقائياً.' },
+  'guide.calendarDetail3': { en: 'Click "Book a Meeting" to open the public booking form, or manage incoming requests from the dashboard.', ar: 'انقر على "حجز اجتماع" لفتح نموذج الحجز العام، أو إدارة الطلبات الواردة من لوحة التحكم.' },
+
+  'guide.requestsTitle': { en: 'Meeting Requests', ar: 'طلبات الاجتماع' },
+  'guide.requestsDesc': { en: 'Handle public meeting requests from church members and trainees.', ar: 'معالجة طلبات الاجتماع العامة من أعضاء الكنيسة والمتدربين.' },
+  'guide.requestsDetail1': { en: 'Pending requests appear at the top of the Calendar page with a yellow badge.', ar: 'تظهر الطلبات المعلقة في أعلى صفحة التقويم مع شارة صفراء.' },
+  'guide.requestsDetail2': { en: 'Click "Accept" to add the meeting to your calendar and automatically generate a Google Meet link.', ar: 'انقر على "قبول" لإضافة الاجتماع إلى تقويمك وإنشاء رابط Google Meet تلقائياً.' },
+  'guide.requestsDetail3': { en: 'An email is automatically sent to the requester with the meeting details and join link.', ar: 'يتم إرسال بريد إلكتروني تلقائياً إلى مقدم الطلب مع تفاصيل الاجتماع ورابط الانضمام.' },
+  'guide.requestsDetail4': { en: 'Click "Reject" to decline a request. The requester will not be notified.', ar: 'انقر على "رفض" لرفض الطلب. لن يتم إخطار مقدم الطلب.' },
+
+  'guide.langTitle': { en: 'Language & Localization', ar: 'اللغة والتوطين' },
+  'guide.langDesc': { en: 'Switch between English and Arabic throughout the dashboard.', ar: 'التبديل بين العربية والإنجليزية في جميع أنحاء لوحة التحكم.' },
+  'guide.langDetail1': { en: 'Use the language toggle in the navigation bar to switch instantly.', ar: 'استخدم مفتاح تبديل اللغة في شريط التنقل للتبديل فوراً.' },
+  'guide.langDetail2': { en: 'Your language preference is saved automatically for future visits.', ar: 'يتم حفظ تفضيل اللغة تلقائياً للزيارات المستقبلية.' },
+
+  'guide.supportTitle': { en: 'Need Help?', ar: 'تحتاج مساعدة؟' },
+  'guide.supportDesc': { en: 'Contact the technical support team (T-TLabs) for any issues or questions regarding the dashboard.', ar: 'تواصل مع فريق الدعم الفني (T-TLabs) لأي مشاكل أو أسئلة تتعلق بلوحة التحكم.' },
 };

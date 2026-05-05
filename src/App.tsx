@@ -7,6 +7,7 @@ import Calendar from './components/Calendar';
 import LandingPage from './pages/LandingPage';
 import PrivacyPolicy from './pages/PrivacyPolicy';
 import TermsOfService from './pages/TermsOfService';
+import GuidePage from './pages/GuidePage';
 import { auth, signInWithGoogle, signInWithEmail, signUpWithEmail } from './firebase';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { LogIn, ShieldCheck, Mail, Lock, AlertCircle } from 'lucide-react';
@@ -159,6 +160,7 @@ function AppRoutes() {
     if (path === '/dashboard') return 'dashboard';
     if (path === '/calendar') return 'calendar';
     if (path === '/assessment') return 'assessment';
+    if (path === '/guide') return 'guide';
     return 'home';
   };
 
@@ -181,6 +183,16 @@ function AppRoutes() {
           <Layout activeTab={getActiveTab()} isAdmin={!!isAdmin}>
             <ProtectedRoute isAdmin={!!isAdmin} loading={loading}>
               <Calendar />
+            </ProtectedRoute>
+          </Layout>
+        }
+      />
+      <Route
+        path="/guide"
+        element={
+          <Layout activeTab={getActiveTab()} isAdmin={!!isAdmin}>
+            <ProtectedRoute isAdmin={!!isAdmin} loading={loading}>
+              <GuidePage />
             </ProtectedRoute>
           </Layout>
         }

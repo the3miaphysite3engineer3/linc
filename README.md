@@ -24,9 +24,26 @@ A bilingual (English/Arabic) church administration dashboard for LINC Ministries
 - Real Google Meet link creation through Google Calendar API
 - Upcoming meetings list with quick actions
 
+### Public Meeting Booking
+- **Book a Meeting** button on the landing page for church members
+- Form collects name, email, preferred date/time, and reason
+- **Automatic conflict detection**: prevents booking during existing pastor meetings
+- Submissions are stored as pending requests in Firebase
+
+### Meeting Request Management
+- Pending requests appear on the Calendar page with a count badge
+- **Accept**: Automatically creates the meeting in the calendar, generates a Google Meet link, and sends a confirmation email to the requester with all details
+- **Reject**: Declines the request without notification
+- Full audit trail with status tracking (pending/accepted/rejected)
+
+### Pastor Guide
+- Interactive guide page explaining how to use the dashboard
+- Covers authentication, assessment review, calendar management, and meeting requests
+- Fully bilingual (English/Arabic)
+
 ### Authentication & Security
 - Google Sign-In and Email/Password authentication via Firebase
-- Admin-only access to `/dashboard` and `/calendar` routes
+- Admin-only access to `/dashboard`, `/calendar`, and `/guide` routes
 - Firebase Realtime Database for persistent data storage
 - OAuth 2.0 implicit flow for Google API access (Calendar, Gmail)
 
@@ -55,20 +72,22 @@ kiroform/
 ├── src/
 │   ├── components/          # Reusable UI components
 │   │   ├── AssessmentForm.tsx
-│   │   ├── Calendar.tsx
-│   │   ├── Layout.tsx
-│   │   └── PageTitle.tsx
+│   │   ├── BookMeeting.tsx      # Public booking modal
+│   │   ├── Calendar.tsx         # Admin calendar & requests
+│   │   ├── Layout.tsx           # Navigation wrapper
+│   │   └── PageTitle.tsx        # Page header component
 │   ├── i18n/                # Internationalization
 │   │   ├── index.tsx        # I18nProvider & useI18n hook
 │   │   └── translations.ts  # EN/AR translation map
 │   ├── pages/               # Route-level components
 │   │   ├── AdminDashboard.tsx
+│   │   ├── GuidePage.tsx    # Pastor user guide
 │   │   ├── LandingPage.tsx
 │   │   ├── PrivacyPolicy.tsx
 │   │   └── TermsOfService.tsx
 │   ├── services/            # External API integrations
 │   │   └── gmail.ts         # Gmail API & Google Calendar
-│   ├── types/               # TypeScript type definitions
+│   ├── types.ts             # TypeScript type definitions
 │   ├── App.tsx              # Router & auth guard
 │   ├── firebase.ts          # Firebase initialization
 │   └── main.tsx             # Entry point
@@ -126,6 +145,10 @@ kiroform/
        "meetings": {
          ".read": "auth != null",
          ".write": "auth != null"
+       },
+       "meetingRequests": {
+         ".read": true,
+         ".write": true
        }
      }
    }
@@ -157,7 +180,7 @@ Output will be in `dist/`. Deploy to any static hosting (Firebase Hosting, Verce
 
 ## Admin Access
 
-Access to `/dashboard` and `/calendar` is restricted to these email addresses by default:
+Access to `/dashboard`, `/calendar`, and `/guide` is restricted to these email addresses by default:
 - `georgejoseph5000@gmail.com`
 - `georgtawadrous@gmail.com`
 - `test@example.com`
@@ -173,7 +196,7 @@ Edit the `admins` array in `src/App.tsx` to add or remove admin users.
 | `npm run preview` | Preview production build locally |
 | `npm run lint` | Run ESLint |
 
-## License 
+## License
 
 Private — LINC Ministries
 

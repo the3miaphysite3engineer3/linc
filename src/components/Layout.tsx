@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'motion/react';
-import { Church, LayoutDashboard, ClipboardList, Calendar as CalendarIcon, LogOut, Home, Globe } from 'lucide-react';
+import { Church, LayoutDashboard, ClipboardList, Calendar as CalendarIcon, LogOut, Home, Globe, BookOpen } from 'lucide-react';
 import { auth } from '../firebase';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { Link } from 'react-router-dom';
@@ -59,6 +59,13 @@ export default function Layout({ children, activeTab, isAdmin }: LayoutProps) {
               >
                 <CalendarIcon size={20} />
                 <span className="text-[10px] md:text-sm uppercase tracking-wider">{t('nav.calendar')}</span>
+              </Link>
+              <Link
+                to="/guide"
+                className={`flex flex-col md:flex-row items-center gap-1 md:gap-2 text-sm font-medium transition-colors ${activeTab === 'guide' ? 'text-[#8B1E1E]' : 'text-gray-500 hover:text-[#8B1E1E]'}`}
+              >
+                <BookOpen size={20} />
+                <span className="text-[10px] md:text-sm uppercase tracking-wider">{t('nav.guide')}</span>
               </Link>
             </>
           )}
