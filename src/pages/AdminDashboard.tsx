@@ -195,7 +195,6 @@ export default function AdminDashboard() {
     }
   };
 
-  const lang = selected?.interfaceLanguageUsed === 'Arabic' ? 'Arabic' : 'English';
   const t = useI18n().t;
   const isAr = locale === 'ar';
 
@@ -320,17 +319,6 @@ export default function AdminDashboard() {
                       </>
                     )}
                   </button>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-8">
-                <div className="bg-white/10 p-4 rounded-2xl border border-white/20">
-                  <p className="text-[10px] uppercase tracking-widest opacity-60 mb-2">{t('dashboard.primaryGift')}</p>
-                  <p className="text-lg font-bold">{selected.results?.[lang]?.primaryGift || 'N/A'}</p>
-                </div>
-                <div className="bg-white/10 p-4 rounded-2xl border border-white/20">
-                  <p className="text-[10px] uppercase tracking-widest opacity-60 mb-2">{t('dashboard.secondaryGift')}</p>
-                  <p className="text-lg font-bold">{selected.results?.[lang]?.secondaryGift || 'N/A'}</p>
                 </div>
               </div>
             </div>
