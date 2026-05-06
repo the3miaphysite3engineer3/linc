@@ -97,24 +97,7 @@ export default function BookingCalendar() {
           });
         }
 
-        const requestsRef = ref(database, 'meetingRequests/');
-        onValue(requestsRef, (reqSnap) => {
-          const reqData = reqSnap.val();
-          if (reqData) {
-            Object.values(reqData).forEach((val: any) => {
-              if (val.date && val.startTime && val.endTime) {
-                blocks.push({
-                  date: val.date,
-                  startHour: timeToHour(val.startTime),
-                  endHour: timeToHour(val.endTime),
-                  title: `Request: ${val.name || 'Unknown'}`,
-                  type: 'meeting',
-                });
-              }
-            });
-          }
-          setBusyBlocks(blocks);
-        });
+        setBusyBlocks(blocks);
       });
     });
   }, []);
