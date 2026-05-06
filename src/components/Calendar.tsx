@@ -36,6 +36,24 @@ function hourToTime(hourValue: number): string {
   return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
 }
 
+function hourToLabel(hourValue: number, locale: 'en' | 'ar'): string {
+  const isAr = locale === 'ar';
+  const hours = Math.floor(hourValue);
+  const minutes = Math.round((hourValue - hours) * 60);
+  const period = hours >= 12 ? (isAr ? 'م' : 'PM') : (isAr ? 'ص' : 'AM');
+  const hour12 = hours === 0 ? 12 : hours > 12 ? hours - 12 : hours;
+
+  return `${hour12}:${String(minutes).padStart(2, '0')} ${period}`;
+}
+
+function timeToLabel(time: string | undefined, locale: 'en' | 'ar'): string {
+  return hourToLabel(timeToHour(time || '00:00'), locale);
+}
+
+function timeRangeToLabel(startTime: string | undefined, endTime: string | undefined, locale: 'en' | 'ar'): string {
+  return `${timeToLabel(startTime, locale)} - ${timeToLabel(endTime, locale)}`;
+}
+
 function slotOverlaps(startA: number, endA: number, startB: number, endB: number): boolean {
   return startA < endB && endA > startB;
 }
@@ -86,7 +104,8 @@ interface UnavailabilityForm {
 }
 
 export default function Calendar() {
-  const { t, dir } = useI18n();
+  const { t, dir, locale } = useI18n();
+  const displayLocale = locale === 'ar' ? 'ar' : 'en';
   const [currentDate, setCurrentDate] = useState(new Date());
   const [meetings, setMeetings] = useState<Meeting[]>([]);
   const [isAddOpen, setIsAddOpen] = useState(false);
@@ -363,7 +382,7 @@ export default function Calendar() {
           <div style="background: white; padding: 16px; border-radius: 14px; border: 1px solid #e5e5e5; margin-bottom: 16px;">
             <p style="margin: 4px 0; font-size: 14px;"><strong>Meeting:</strong> ${meetingData.title}</p>
             <p style="margin: 4px 0; font-size: 14px;"><strong>Date:</strong> ${format(parseISO(meetingData.date), 'EEEE, MMMM d, yyyy')}</p>
-            <p style="margin: 4px 0; font-size: 14px;"><strong>Time:</strong> ${meetingData.startTime} - ${meetingData.endTime}</p>
+            <p style="margin: 4px 0; font-size: 14px;"><strong>Time:</strong> ${timeRangeToLabel(meetingData.startTime, meetingData.endTime, displayLocale)}</p>
             <p style="margin: 4px 0; font-size: 14px;"><strong>Location:</strong> ${meetingData.location || 'TBA'}</p>
             ${meetingData.meetLink ? `<p style="margin: 4px 0; font-size: 14px;"><strong>Google Meet:</strong> <a href="${meetingData.meetLink}">${meetingData.meetLink}</a></p>` : ''}
           </div>
@@ -742,7 +761,7 @@ Otherwise, provide a helpful response about their calendar.`;
                   <div style="background:white;padding:16px;border-radius:14px;border:1px solid #e5e5e5;margin-bottom:16px;">
                     <p style="margin:4px 0;font-size:14px;"><strong>Meeting:</strong> Meeting with Pastor</p>
                     <p style="margin:4px 0;font-size:14px;"><strong>Date:</strong> ${format(parseISO(req.date), 'EEEE, MMMM d, yyyy')}</p>
-                    <p style="margin:4px 0;font-size:14px;"><strong>Time:</strong> ${req.startTime} - ${req.endTime}</p>
+                    <p style="margin:4px 0;font-size:14px;"><strong>Time:</strong> ${timeRangeToLabel(req.startTime, req.endTime, displayLocale)}</p>
                     ${req.reason ? `<p style="margin:4px 0;font-size:14px;"><strong>Reason:</strong> ${req.reason}</p>` : ''}
                     ${meetLink ? `<p style="margin:8px 0;font-size:14px;"><strong>Google Meet:</strong> <a href="${meetLink}" style="color:#8b1e1e;font-weight:bold;">Join Meeting</a></p>` : ''}
                   </div>
@@ -1030,7 +1049,7 @@ Otherwise, provide a helpful response about their calendar.`;
                       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-500 mt-0.5">
                         <span className="flex items-center gap-1"><Mail size={11} /> {req.email}</span>
                         <span className="flex items-center gap-1"><CalendarIcon size={11} /> {req.date}</span>
-                        <span className="flex items-center gap-1"><Clock size={11} /> {req.startTime} - {req.endTime}</span>
+                        <span className="flex items-center gap-1"><Clock size={11} /> {timeRangeToLabel(req.startTime, req.endTime, displayLocale)}</span>
                       </div>
                       <p className="text-xs text-gray-400 mt-1 italic">{req.reason}</p>
                     </div>
@@ -1139,7 +1158,7 @@ Otherwise, provide a helpful response about their calendar.`;
                     >
                       <X size={10} />
                     </button>
-                    <div className="font-bold text-green-700 line-clamp-1">{a.allDay ? t('calendar.available') : `${a.startTime} - ${a.endTime}`}</div>
+                    <div className="font-bold text-green-700 line-clamp-1">{a.allDay ? t('calendar.available') : timeRangeToLabel(a.startTime, a.endTime, displayLocale)}</div>
                     {a.reason && <div className="text-green-600 text-[9px] mt-0.5 line-clamp-1">{a.reason}</div>}
                   </div>
                 ))}
@@ -1171,7 +1190,7 @@ Otherwise, provide a helpful response about their calendar.`;
                     >
                       <X size={10} />
                     </button>
-                    <div className="font-bold text-red-700 line-clamp-1">{u.allDay ? t('calendar.unavailable') : `${u.startTime} - ${u.endTime}`}</div>
+                    <div className="font-bold text-red-700 line-clamp-1">{u.allDay ? t('calendar.unavailable') : timeRangeToLabel(u.startTime, u.endTime, displayLocale)}</div>
                     {u.reason && <div className="text-red-500 text-[9px] mt-0.5 line-clamp-1">{u.reason}</div>}
                   </div>
                 ))}
@@ -1189,7 +1208,7 @@ Otherwise, provide a helpful response about their calendar.`;
                     className="p-2 bg-stone-50 rounded-lg text-[10px] cursor-pointer group hover:bg-[#8B1E1E] transition-colors"
                   >
                     <div className="font-bold group-hover:text-white line-clamp-1">{getMeetingDisplayTitle(m)}</div>
-                    <div className="text-gray-500 group-hover:text-white/80">{m.startTime}</div>
+                    <div className="text-gray-500 group-hover:text-white/80">{timeToLabel(m.startTime, displayLocale)}</div>
                   </div>
                 ))}
               </div>
@@ -1241,7 +1260,7 @@ Otherwise, provide a helpful response about their calendar.`;
                       : 'bg-gray-50 border-gray-200 text-gray-400 cursor-not-allowed opacity-70'
                   }`}
                 >
-                  <div>{hourToTime(hour)} - {hourToTime(hour + SLOT_BLOCK_DURATION)}</div>
+                  <div>{hourToLabel(hour, displayLocale)} - {hourToLabel(hour + SLOT_BLOCK_DURATION, displayLocale)}</div>
                   <div className="text-[10px] mt-1 uppercase tracking-widest">{slotLabel}</div>
                 </button>
               );
@@ -1281,7 +1300,7 @@ Otherwise, provide a helpful response about their calendar.`;
                   <div>
                     <h4 className="text-lg font-bold">{getMeetingDisplayTitle(m)}</h4>
                     <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-500 mt-1">
-                      <span className="flex items-center gap-1"><Clock size={12} /> {m.startTime} - {m.endTime}</span>
+                      <span className="flex items-center gap-1"><Clock size={12} /> {timeRangeToLabel(m.startTime, m.endTime, displayLocale)}</span>
                       {m.location && <span className="flex items-center gap-1"><MapPin size={12} /> {m.location}</span>}
                       {requestEmail && <span className="flex items-center gap-1"><Mail size={12} /> {requestEmail}</span>}
                       {meetingParticipants.length > 0 && (
