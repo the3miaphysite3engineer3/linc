@@ -9,22 +9,31 @@ import AIBookingAssistant from '../components/AIBookingAssistant';
 import { sendEmailViaEmailJS } from '../services/gmail';
 
 const BUSINESS_START = 9;
-const BUSINESS_END = 20;
+const BUSINESS_END = 17;
 const SLOT_DURATION = 0.5;
 
 function timeToHour(t: string): number {
-  return parseInt(t.split(':')[0], 10);
+  const [hours, minutes] = t.split(':').map(Number);
+  return hours + minutes / 60;
 }
 
 function hourToLabel(h: number, locale: 'en' | 'ar'): string {
   const isAr = locale === 'ar';
-  const period = h >= 12 ? (isAr ? 'م' : 'PM') : (isAr ? 'ص' : 'AM');
-  const hour12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
-  return `${hour12}:00 ${period}`;
+
+  const hour = Math.floor(h);
+  const minutes = Math.round((h - hour) * 60);
+
+  const period = hour >= 12 ? (isAr ? 'م' : 'PM') : (isAr ? 'ص' : 'AM');
+  const hour12 = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
+
+  return `${hour12}:${String(minutes).padStart(2, '0')} ${period}`;
 }
 
 function hourToTime(h: number): string {
-  return `${String(h).padStart(2, '0')}:00`;
+  const hour = Math.floor(h);
+  const minutes = Math.round((h - hour) * 60);
+
+  return `${String(hour).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
 }
 
 interface BusyBlock {
@@ -150,13 +159,19 @@ export default function BookingCalendar() {
 
   const isSlotInfeasible = (day: Date, hour: number): boolean => {
     if (hour < BUSINESS_START || hour >= BUSINESS_END) return true;
+
     const dayStr = format(day, 'yyyy-MM-dd');
     const todayStr = format(new Date(), 'yyyy-MM-dd');
+
     if (dayStr === todayStr) {
       const now = new Date();
-      if (hour <= now.getHours()) return true;
+      const currentHour = now.getHours() + now.getMinutes() / 60;
+
+      if (hour <= currentHour) return true;
     }
+
     if (isBefore(startOfDay(day), startOfDay(new Date()))) return true;
+
     return false;
   };
 
@@ -176,7 +191,9 @@ export default function BookingCalendar() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedDay || selectedSlot === null) return;
+
     setLoading(true);
+
     try {
       const dateStr = format(selectedDay, 'yyyy-MM-dd');
       const request = {
@@ -189,6 +206,7 @@ export default function BookingCalendar() {
         status: 'pending',
         createdAt: Date.now(),
       };
+
       await push(ref(database, 'meetingRequests/'), request);
 
       for (const pastorEmail of pastors) {
@@ -222,6 +240,8 @@ export default function BookingCalendar() {
   };
 
   const daySlots = selectedDay ? busyBlocks.filter(b => b.date === format(selectedDay, 'yyyy-MM-dd')) : [];
+
+  const numberOfSlots = Math.floor((BUSINESS_END - BUSINESS_START) / SLOT_DURATION);
 
   return (
     <div className="space-y-8 max-w-5xl mx-auto px-4 py-8" dir={dir} style={{ fontFamily: 'Arial, sans-serif' }}>
@@ -323,7 +343,6 @@ export default function BookingCalendar() {
               <button onClick={() => setSelectedDay(null)} className="p-2 hover:bg-gray-100 rounded-full transition-colors"><X size={18} /></button>
             </div>
 
-            {/* Blocked Slots */}
             {daySlots.length > 0 && (
               <div className="mb-6 bg-stone-50 rounded-xl p-4 border border-gray-100">
                 <div className="flex items-center gap-2 mb-3">
@@ -348,10 +367,9 @@ export default function BookingCalendar() {
               </div>
             )}
 
-            {/* Time Slots */}
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 mb-6">
-              {Array.from({ length: BUSINESS_END - BUSINESS_START }).map((_, i) => {
-                const hour = BUSINESS_START + i;
+              {Array.from({ length: numberOfSlots }).map((_, i) => {
+                const hour = BUSINESS_START + i * SLOT_DURATION;
                 const status = slotStatus(selectedDay, hour);
                 const isSel = selectedSlot === hour;
                 return (
@@ -377,7 +395,6 @@ export default function BookingCalendar() {
               })}
             </div>
 
-            {/* Booking Form */}
             {selectedSlot !== null && !success && (
               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-stone-50 rounded-2xl p-5 border border-gray-100">
                 <h4 className="font-bold text-sm text-gray-500 mb-3 uppercase tracking-widest">
