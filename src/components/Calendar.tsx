@@ -65,8 +65,37 @@ interface UnavailabilityForm {
   allDay: boolean;
 }
 
+const SLOT_TOOL_START = 9;
+const SLOT_TOOL_END = 20;
+const SLOT_TOOL_DURATION = 0.5;
+
+function slotTimeToHour(time?: string): number {
+  if (!time) return 0;
+  const [hours, minutes] = time.split(':').map(Number);
+  return hours + (minutes || 0) / 60;
+}
+
+function slotHourToTime(hourValue: number): string {
+  const hours = Math.floor(hourValue);
+  const minutes = Math.round((hourValue - hours) * 60);
+  return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+}
+
+function slotHourToLabel(hourValue: number, locale: 'en' | 'ar'): string {
+  const isArabic = locale === 'ar';
+  const hour = Math.floor(hourValue);
+  const minutes = Math.round((hourValue - hour) * 60);
+  const period = hour >= 12 ? (isArabic ? 'م' : 'PM') : (isArabic ? 'ص' : 'AM');
+  const hour12 = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
+  return `${hour12}:${String(minutes).padStart(2, '0')} ${period}`;
+}
+
+function rangesOverlap(startA: number, endA: number, startB: number, endB: number): boolean {
+  return startA < endB && endA > startB;
+}
+
 export default function Calendar() {
-  const { t, dir } = useI18n();
+  const { t, dir, locale } = useI18n();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [meetings, setMeetings] = useState<Meeting[]>([]);
   const [isAddOpen, setIsAddOpen] = useState(false);
@@ -79,6 +108,8 @@ export default function Calendar() {
   const [emailSent, setEmailSent] = useState(false);
   const [meetingRequests, setMeetingRequests] = useState<MeetingRequest[]>([]);
   const [showRequests, setShowRequests] = useState(false);
+  const [selectedSlotDay, setSelectedSlotDay] = useState<Date | null>(null);
+  const [slotActionLoading, setSlotActionLoading] = useState(false);
 
   const [availability, setAvailability] = useState<Availability[]>([]);
   const [unavailability, setUnavailability] = useState<Unavailability[]>([]);
@@ -529,6 +560,115 @@ export default function Calendar() {
     }
   };
 
+  const getAvailabilityForSlot = (dateStr: string, startHour: number, endHour: number): Availability | undefined => {
+    return availability.find(item => {
+      const itemStart = slotTimeToHour(item.startTime || '09:00');
+      const itemEnd = slotTimeToHour(item.endTime || '20:00');
+      return item.date === dateStr && startHour >= itemStart && endHour <= itemEnd;
+    });
+  };
+
+  const getUnavailabilityForSlot = (dateStr: string, startHour: number, endHour: number): Unavailability | undefined => {
+    return unavailability.find(item => {
+      const itemStart = slotTimeToHour(item.startTime || '00:00');
+      const itemEnd = slotTimeToHour(item.endTime || '23:59');
+      return item.date === dateStr && startHour >= itemStart && endHour <= itemEnd;
+    });
+  };
+
+  const isMeetingOrRequestForSlot = (dateStr: string, startHour: number, endHour: number): boolean => {
+    const hasMeeting = meetings.some(meeting => {
+      if (!meeting.date || meeting.date !== dateStr || !meeting.startTime || !meeting.endTime) return false;
+      return rangesOverlap(startHour, endHour, slotTimeToHour(meeting.startTime), slotTimeToHour(meeting.endTime));
+    });
+
+    if (hasMeeting) return true;
+
+    return meetingRequests.some(request => {
+      if (!request.date || request.date !== dateStr || !request.startTime || !request.endTime) return false;
+      if (request.status === 'rejected') return false;
+      return rangesOverlap(startHour, endHour, slotTimeToHour(request.startTime), slotTimeToHour(request.endTime));
+    });
+  };
+
+  const getPastorSlotStatus = (day: Date, startHour: number): 'booked' | 'blocked' | 'available' | 'closed' => {
+    const dateStr = format(day, 'yyyy-MM-dd');
+    const endHour = startHour + SLOT_TOOL_DURATION;
+
+    if (isMeetingOrRequestForSlot(dateStr, startHour, endHour)) return 'booked';
+    if (getUnavailabilityForSlot(dateStr, startHour, endHour)) return 'blocked';
+    if (getAvailabilityForSlot(dateStr, startHour, endHour)) return 'available';
+    return 'closed';
+  };
+
+  const handleToggleSlotBlock = async (day: Date, startHour: number) => {
+    const dateStr = format(day, 'yyyy-MM-dd');
+    const endHour = startHour + SLOT_TOOL_DURATION;
+
+    if (isMeetingOrRequestForSlot(dateStr, startHour, endHour)) return;
+
+    setSlotActionLoading(true);
+
+    try {
+      const existingBlock = getUnavailabilityForSlot(dateStr, startHour, endHour);
+
+      if (existingBlock) {
+        const { remove, update, push } = await import('firebase/database');
+        const blockStart = slotTimeToHour(existingBlock.startTime || '00:00');
+        const blockEnd = slotTimeToHour(existingBlock.endTime || '23:59');
+        const exactOrSingleSlot = startHour <= blockStart && endHour >= blockEnd;
+        const atStart = startHour <= blockStart && endHour < blockEnd;
+        const atEnd = startHour > blockStart && endHour >= blockEnd;
+
+        if (exactOrSingleSlot) {
+          await remove(ref(database, `unavailability/${existingBlock.id}`));
+        } else if (atStart) {
+          await update(ref(database, `unavailability/${existingBlock.id}`), {
+            startTime: slotHourToTime(endHour),
+            allDay: false,
+            updatedAt: Date.now(),
+          });
+        } else if (atEnd) {
+          await update(ref(database, `unavailability/${existingBlock.id}`), {
+            endTime: slotHourToTime(startHour),
+            allDay: false,
+            updatedAt: Date.now(),
+          });
+        } else {
+          await update(ref(database, `unavailability/${existingBlock.id}`), {
+            endTime: slotHourToTime(startHour),
+            allDay: false,
+            updatedAt: Date.now(),
+          });
+
+          await push(ref(database, 'unavailability/'), {
+            date: dateStr,
+            startTime: slotHourToTime(endHour),
+            endTime: slotHourToTime(blockEnd),
+            reason: existingBlock.reason || '',
+            allDay: false,
+            updatedAt: Date.now(),
+          });
+        }
+      } else {
+        const { push } = await import('firebase/database');
+        await push(ref(database, 'unavailability/'), {
+          date: dateStr,
+          startTime: slotHourToTime(startHour),
+          endTime: slotHourToTime(endHour),
+          reason: '',
+          allDay: false,
+          updatedAt: Date.now(),
+        });
+      }
+    } catch (err) {
+      console.error(err);
+      alert(t('calendar.saveUnavailabilityFailed'));
+    } finally {
+      setSlotActionLoading(false);
+    }
+  };
+
   const handleAiAssistant = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!aiInput.trim()) return;
@@ -747,6 +887,16 @@ Otherwise, provide a helpful response about their calendar.`;
     .map(p => p.name);
 
   const availabilityDateCount = buildAvailabilityDates().length;
+  const slotToolLabels = {
+    title: locale === 'ar' ? 'حظر / إلغاء حظر الأوقات' : 'Block / Unblock Slots',
+    description: locale === 'ar' ? 'اضغط على أي وقت لحظره أو لإلغاء حظره. الاجتماعات والطلبات لا يمكن تعديلها من هنا.' : 'Click any slot to block or unblock it. Meetings and requests cannot be changed from here.',
+    selectedDay: locale === 'ar' ? 'اليوم المحدد' : 'Selected Day',
+    blocked: locale === 'ar' ? 'محظور' : 'Blocked',
+    closed: locale === 'ar' ? 'مغلق' : 'Closed',
+    booked: locale === 'ar' ? 'محجوز' : 'Booked',
+    available: locale === 'ar' ? 'متاح' : 'Available',
+    clickDay: locale === 'ar' ? 'اختر يوماً من التقويم لإدارة الأوقات.' : 'Select a day from the calendar to manage slots.',
+  };
 
   return (
     <div className="space-y-8" style={{ fontFamily: 'Arial, sans-serif' }} dir={dir}>
@@ -926,7 +1076,8 @@ Otherwise, provide a helpful response about their calendar.`;
           return (
             <div
               key={day.toISOString()}
-              className={`min-h-[140px] bg-white rounded-2xl p-3 border border-gray-100 transition-all hover:border-[#8B1E1E]/20 ${i === 0 ? [
+              onClick={() => setSelectedSlotDay(day)}
+              className={`min-h-[140px] bg-white rounded-2xl p-3 border cursor-pointer transition-all ${selectedSlotDay && isSameDay(selectedSlotDay, day) ? 'border-[#8B1E1E] ring-2 ring-[#8B1E1E]/10' : 'border-gray-100 hover:border-[#8B1E1E]/20'} ${i === 0 ? [
                 '',
                 'md:col-start-1',
                 'md:col-start-2',
@@ -949,7 +1100,8 @@ Otherwise, provide a helpful response about their calendar.`;
                 {dayAvailability.map(a => (
                   <div
                     key={a.id}
-                    onClick={() => {
+                    onClick={(e) => {
+                      e.stopPropagation();
                       setEditingAvailability(a);
                       setAvailabilityForm({
                         mode: 'single',
@@ -984,7 +1136,8 @@ Otherwise, provide a helpful response about their calendar.`;
                 {dayUnavailability.map(u => (
                   <div
                     key={u.id}
-                    onClick={() => {
+                    onClick={(e) => {
+                      e.stopPropagation();
                       setEditingUnavailability(u);
                       setUnavailabilityForm({
                         date: u.date,
@@ -1015,7 +1168,8 @@ Otherwise, provide a helpful response about their calendar.`;
                 {dayMeetings.map(m => (
                   <div
                     key={m.id}
-                    onClick={() => {
+                    onClick={(e) => {
+                      e.stopPropagation();
                       setEditingMeeting(m);
                       setNewMeeting(m);
                       setSelectedParticipants(m.participantIds || []);
@@ -1032,6 +1186,67 @@ Otherwise, provide a helpful response about their calendar.`;
           );
         })}
       </div>
+
+      <section className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
+          <div>
+            <h3 className="text-xl font-bold flex items-center gap-2 text-[#8B1E1E]">
+              <Ban size={20} />
+              {slotToolLabels.title}
+            </h3>
+            <p className="text-xs text-gray-400 mt-1">{slotToolLabels.description}</p>
+          </div>
+          {selectedSlotDay && (
+            <div className="text-xs font-bold text-gray-500 bg-stone-50 border border-gray-100 rounded-xl px-4 py-2">
+              {slotToolLabels.selectedDay}: {format(selectedSlotDay, 'EEEE, MMMM d, yyyy')}
+            </div>
+          )}
+        </div>
+
+        {!selectedSlotDay ? (
+          <div className="text-center py-8 text-gray-400 italic">{slotToolLabels.clickDay}</div>
+        ) : (
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
+            {Array.from({ length: Math.floor((SLOT_TOOL_END - SLOT_TOOL_START) / SLOT_TOOL_DURATION) }).map((_, i) => {
+              const startHour = SLOT_TOOL_START + i * SLOT_TOOL_DURATION;
+              const endHour = startHour + SLOT_TOOL_DURATION;
+              const status = getPastorSlotStatus(selectedSlotDay, startHour);
+              const isBooked = status === 'booked';
+              const isBlocked = status === 'blocked';
+              const isAvailable = status === 'available';
+
+              return (
+                <button
+                  key={startHour}
+                  type="button"
+                  disabled={slotActionLoading || isBooked}
+                  onClick={() => handleToggleSlotBlock(selectedSlotDay, startHour)}
+                  className={`p-3 rounded-xl border text-sm font-bold transition-all ${
+                    isBooked
+                      ? 'bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed'
+                      : isBlocked
+                      ? 'bg-red-100 border-red-200 text-red-700 hover:bg-red-50'
+                      : isAvailable
+                      ? 'bg-green-50 border-green-200 text-green-700 hover:bg-red-50 hover:border-red-200 hover:text-red-700'
+                      : 'bg-stone-50 border-gray-200 text-gray-500 hover:bg-red-50 hover:border-red-200 hover:text-red-700'
+                  }`}
+                >
+                  <div>{slotHourToLabel(startHour, locale as 'en' | 'ar')} - {slotHourToLabel(endHour, locale as 'en' | 'ar')}</div>
+                  <div className="text-[10px] mt-1 uppercase tracking-widest">
+                    {isBooked
+                      ? slotToolLabels.booked
+                      : isBlocked
+                      ? slotToolLabels.blocked
+                      : isAvailable
+                      ? slotToolLabels.available
+                      : slotToolLabels.closed}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </section>
 
       <section className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100">
         <h3 className="text-xl font-bold mb-6 flex items-center gap-2 text-[#8B1E1E]">
