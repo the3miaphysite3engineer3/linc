@@ -2,6 +2,9 @@
   command = "npm run build"
   publish = "dist"
 
+[build.environment]
+  SECRETS_SCAN_OMIT_PATHS = "src/**/*.ts,src/**/*.tsx,src/**/*.js,*.js"
+
 [[redirects]]
   from = "/*"
   to = "/index.html"
