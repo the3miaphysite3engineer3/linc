@@ -227,6 +227,7 @@ export const translations: Record<string, { en: string; ar: string }> = {
 
   // Calendar Availability / Unavailability
   'calendar.availabilityOpensBooking': { en: 'Availability opens booking. Unavailability closes booking.', ar: 'الإتاحة تفتح الحجز. عدم الإتاحة يغلق الحجز.' },
+  
   'calendar.markAvailable': { en: 'Mark Available', ar: 'تحديد كمتاح' },
   'calendar.markUnavailable': { en: 'Mark Unavailable', ar: 'تحديد كغير متاح' },
   'calendar.noAvailabilityOpened': { en: 'No availability opened', ar: 'لا توجد إتاحة مفتوحة' },
@@ -389,6 +390,14 @@ export const translations: Record<string, { en: string; ar: string }> = {
   'booking.emailLabel': { en: 'Email', ar: 'البريد الإلكتروني' },
   'booking.timeLabel': { en: 'Time', ar: 'الوقت' },
   'booking.adminInstructions': { en: 'Please log in to the dashboard to accept or reject this request.', ar: 'يرجى تسجيل الدخول إلى لوحة التحكم لقبول الطلب أو رفضه.' },
+  'booking.scheduleBlocks': {
+  en: 'Schedule Blocks',
+  ar: 'كتل الجدول'
+},
+'booking.noAvailabilityOpenedForDay': {
+  en: 'No availability has been opened for this day.',
+  ar: 'لم يتم فتح أي إتاحة لهذا اليوم.'
+},
 
   // Admin Manager
   'admin.title': { en: 'Admin Management', ar: 'إدارة المسؤولين' },
