@@ -110,6 +110,9 @@ export default function BookMeeting({ isOpen, onClose, preSelectedDate, preSelec
     return () => unsubscribe();
   }, []);
 
+  const daySlots = [...busySlots.filter(s => s.date === date), ...unavailability.filter(s => s.date === date)]
+    .sort((a, b) => a.startTime.localeCompare(b.startTime));
+
   useEffect(() => {
     const allBusy = [...busySlots, ...unavailability];
     const conflict = allBusy.some(slot =>
@@ -118,8 +121,20 @@ export default function BookMeeting({ isOpen, onClose, preSelectedDate, preSelec
     setIsBusy(conflict);
   }, [date, startTime, endTime, busySlots, unavailability]);
 
-  const daySlots = [...busySlots.filter(s => s.date === date), ...unavailability.filter(s => s.date === date)]
-    .sort((a, b) => a.startTime.localeCompare(b.startTime));
+  useEffect(() => {
+    console.log('BookMeeting - date:', date);
+    console.log('BookMeeting - busySlots:', busySlots);
+    console.log('BookMeeting - unavailability:', unavailability);
+    console.log('BookMeeting - daySlots:', daySlots);
+  }, [date, busySlots, unavailability, daySlots]);
+
+  const formattedDate = (() => {
+    try {
+      return format(parseISO(date), 'MMM d, yyyy');
+    } catch {
+      return date;
+    }
+  })();
 
   const handleGetAiSuggestion = async () => {
     setAiLoading(true);
@@ -263,31 +278,6 @@ export default function BookMeeting({ isOpen, onClose, preSelectedDate, preSelec
               </label>
               <input required type="date" min={format(new Date(), 'yyyy-MM-dd')} className="w-full px-4 py-3 bg-stone-50 border-none rounded-xl focus:ring-2 focus:ring-[#8B1E1E]/20 outline-none" value={date} onChange={e => setDate(e.target.value)} />
             </div>
-
-            {/* Blocked Slots Timeline */}
-            {daySlots.length > 0 && (
-              <div className="col-span-2 bg-stone-50 rounded-xl p-4 border border-gray-100">
-                <div className="flex items-center gap-2 mb-3">
-                  <Ban size={14} className="text-red-500" />
-                  <span className="text-xs font-bold text-gray-500 uppercase tracking-widest">Blocked on {format(parseISO(date), 'MMM d, yyyy')}</span>
-                </div>
-                <div className="space-y-2">
-                  {daySlots.map((slot, i) => (
-                    <div key={i} className={`flex items-center justify-between px-3 py-2 rounded-lg text-xs font-bold ${
-                      slot.type === 'unavailable'
-                        ? 'bg-red-100 text-red-700 border border-red-200'
-                        : 'bg-amber-100 text-amber-700 border border-amber-200'
-                    }`}>
-                      <div className="flex items-center gap-2">
-                        {slot.type === 'unavailable' ? <Ban size={12} /> : <CalendarCheck size={12} />}
-                        <span>{slot.title}</span>
-                      </div>
-                      <span className="opacity-75">{slot.startTime} - {slot.endTime}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
             <div className="space-y-1">
               <label className="text-xs font-bold text-gray-400 uppercase tracking-widest flex items-center gap-1">
                 <Clock size={12} />
@@ -304,6 +294,38 @@ export default function BookMeeting({ isOpen, onClose, preSelectedDate, preSelec
                 </div>
               )}
             </div>
+            </div>
+
+            {/* Blocked Slots Section */}
+            <div className="bg-stone-50 rounded-xl p-4 border border-gray-100">
+              <div className="flex items-center gap-2 mb-3">
+                <Ban size={14} className="text-red-500" />
+                <span className="text-xs font-bold text-gray-500 uppercase tracking-widest">
+                  {date ? `Availability on ${formattedDate}` : 'Select a date'}
+                </span>
+              </div>
+              {daySlots.length > 0 ? (
+                <div className="space-y-2">
+                  {daySlots.map((slot, i) => (
+                    <div key={i} className={`flex items-center justify-between px-3 py-2 rounded-lg text-xs font-bold ${
+                      slot.type === 'unavailable'
+                        ? 'bg-red-100 text-red-700 border border-red-200'
+                        : 'bg-amber-100 text-amber-700 border border-amber-200'
+                    }`}>
+                      <div className="flex items-center gap-2">
+                        {slot.type === 'unavailable' ? <Ban size={12} /> : <CalendarCheck size={12} />}
+                        <span>{slot.title}</span>
+                      </div>
+                      <span className="opacity-75">{slot.startTime} - {slot.endTime}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 text-green-600 bg-green-50 px-3 py-2 rounded-lg text-xs font-bold border border-green-200">
+                  <CheckCircle size={14} />
+                  No blocked slots on this date
+                </div>
+              )}
             </div>
 
             <button
