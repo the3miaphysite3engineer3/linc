@@ -36,6 +36,18 @@ interface Availability {
   allDay?: boolean;
 }
 
+interface AvailabilityForm {
+  mode: 'single' | 'multiple';
+  date: string;
+  startDate: string;
+  endDate: string;
+  selectedWeekdays: number[];
+  startTime: string;
+  endTime: string;
+  reason: string;
+  allDay: boolean;
+}
+
 export default function Calendar() {
   const { t, dir } = useI18n();
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -53,10 +65,14 @@ export default function Calendar() {
   const [availability, setAvailability] = useState<Availability[]>([]);
   const [showAvailabilityModal, setShowAvailabilityModal] = useState(false);
   const [editingAvailability, setEditingAvailability] = useState<Availability | null>(null);
-  const [newAvailability, setNewAvailability] = useState<Omit<Availability, 'id'>>({
+  const [availabilityForm, setAvailabilityForm] = useState<AvailabilityForm>({
+    mode: 'single',
     date: format(new Date(), 'yyyy-MM-dd'),
-    startTime: '08:00',
-    endTime: '17:00',
+    startDate: format(new Date(), 'yyyy-MM-dd'),
+    endDate: format(new Date(), 'yyyy-MM-dd'),
+    selectedWeekdays: [0, 1, 2, 3, 4, 5, 6],
+    startTime: '09:00',
+    endTime: '20:00',
     reason: '',
     allDay: true,
   });
@@ -174,6 +190,70 @@ export default function Calendar() {
     end: endOfMonth(currentDate)
   });
 
+  const resetAvailabilityForm = () => {
+    const today = format(new Date(), 'yyyy-MM-dd');
+    setAvailabilityForm({
+      mode: 'single',
+      date: today,
+      startDate: today,
+      endDate: today,
+      selectedWeekdays: [0, 1, 2, 3, 4, 5, 6],
+      startTime: '09:00',
+      endTime: '20:00',
+      reason: '',
+      allDay: true,
+    });
+  };
+
+  const buildAvailabilityDates = (): string[] => {
+    if (availabilityForm.mode === 'single') {
+      return [availabilityForm.date];
+    }
+
+    const start = parseISO(availabilityForm.startDate);
+    const end = parseISO(availabilityForm.endDate);
+
+    if (end < start) {
+      return [];
+    }
+
+    return eachDayOfInterval({ start, end })
+      .filter(day => availabilityForm.selectedWeekdays.includes(day.getDay()))
+      .map(day => format(day, 'yyyy-MM-dd'));
+  };
+
+  const toggleAvailabilityWeekday = (weekday: number) => {
+    setAvailabilityForm(prev => {
+      const alreadySelected = prev.selectedWeekdays.includes(weekday);
+      const nextSelected = alreadySelected
+        ? prev.selectedWeekdays.filter(d => d !== weekday)
+        : [...prev.selectedWeekdays, weekday].sort((a, b) => a - b);
+
+      return {
+        ...prev,
+        selectedWeekdays: nextSelected,
+      };
+    });
+  };
+
+  const getMeetingDisplayTitle = (meeting: Meeting): string => {
+    const requestName = (meeting as any).requestName;
+
+    if (requestName) {
+      return `Meeting with ${requestName}`;
+    }
+
+    return meeting.title || 'Meeting';
+  };
+
+  const getMeetingRequestEmail = (meeting: Meeting): string => {
+    return (meeting as any).requestEmail || '';
+  };
+
+  const getMeetingRequestReason = (meeting: Meeting): string => {
+    return (meeting as any).requestReason || '';
+  };
+
   const toggleParticipant = (id: string) => {
     setSelectedParticipants(prev =>
       prev.includes(id) ? prev.filter(p => p !== id) : [...prev, id]
@@ -285,32 +365,42 @@ export default function Calendar() {
   const handleCreateAvailability = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+
     try {
       const { push, update } = await import('firebase/database');
+
       const availabilityData = {
-        date: newAvailability.date,
-        startTime: newAvailability.startTime,
-        endTime: newAvailability.endTime,
-        reason: newAvailability.reason || '',
-        allDay: newAvailability.allDay,
+        date: availabilityForm.date,
+        startTime: availabilityForm.allDay ? '09:00' : availabilityForm.startTime,
+        endTime: availabilityForm.allDay ? '20:00' : availabilityForm.endTime,
+        reason: availabilityForm.reason || '',
+        allDay: availabilityForm.allDay,
         updatedAt: Date.now(),
       };
 
       if (editingAvailability) {
         await update(ref(database, `availability/${editingAvailability.id}`), availabilityData);
       } else {
-        await push(ref(database, 'availability/'), availabilityData);
+        const selectedDates = buildAvailabilityDates();
+
+        if (selectedDates.length === 0) {
+          alert('No available dates selected.');
+          return;
+        }
+
+        await Promise.all(
+          selectedDates.map(date =>
+            push(ref(database, 'availability/'), {
+              ...availabilityData,
+              date,
+            })
+          )
+        );
       }
 
       setShowAvailabilityModal(false);
       setEditingAvailability(null);
-      setNewAvailability({
-        date: format(new Date(), 'yyyy-MM-dd'),
-        startTime: '08:00',
-        endTime: '17:00',
-        reason: '',
-        allDay: true,
-      });
+      resetAvailabilityForm();
     } catch (err) {
       console.error(err);
       alert('Failed to save availability.');
@@ -347,12 +437,21 @@ export default function Calendar() {
       }
       
       const calendarContext = {
-        meetings: meetings.map(m => ({ title: m.title, date: m.date, startTime: m.startTime, endTime: m.endTime })),
+        meetings: meetings.map(m => ({
+          title: getMeetingDisplayTitle(m),
+          date: m.date,
+          startTime: m.startTime,
+          endTime: m.endTime,
+          requesterEmail: getMeetingRequestEmail(m),
+          requestReason: getMeetingRequestReason(m),
+        })),
         availability: availability.map(a => ({ date: a.date, startTime: a.startTime, endTime: a.endTime, allDay: a.allDay, reason: a.reason })),
         pendingRequests: meetingRequests.filter(r => r.status === 'pending').map(r => ({ id: r.id, name: r.name, email: r.email, date: r.date, startTime: r.startTime, endTime: r.endTime, reason: r.reason })),
       };
 
-      const systemPrompt = `You are an AI assistant for a church pastor to manage their calendar. You can help with:
+      const systemPrompt = `You are an AI assistant for a church pastor to manage their calendar. The scheduling model is unavailable by default. The pastor adds available time blocks.
+
+You can help with:
 1. Adding availability (green slots) - say "I'm available on [date]" or "make [date] available from [time] to [time]"
 2. Accepting meeting requests - say "accept request from [name]" or "accept request #[id]"
 3. Rejecting meeting requests - say "reject request from [name]" or "reject request #[id]"
@@ -395,7 +494,7 @@ Otherwise, provide a helpful response about their calendar.`;
             startTime,
             endTime,
             reason,
-            allDay: startTime === '00:00' && endTime === '23:59',
+            allDay: startTime === '09:00' && endTime === '20:00',
             updatedAt: Date.now(),
           });
           setAiMessages(prev => [...prev, { role: 'assistant', content: `✅ Added availability for ${date}${reason ? ` (${reason})` : ''}. The slot is now marked in green on your calendar.`, timestamp: new Date() }]);
@@ -441,7 +540,7 @@ Otherwise, provide a helpful response about their calendar.`;
 
           const { push } = await import('firebase/database');
           await push(ref(database, 'meetings/'), {
-            title: `Meeting with ${req.name}`,
+            title: 'Meeting with Pastor',
             date: req.date,
             startTime: req.startTime,
             endTime: req.endTime,
@@ -449,6 +548,10 @@ Otherwise, provide a helpful response about their calendar.`;
             meetLink,
             type: 'counseling',
             participantIds: [],
+            requestName: req.name,
+            requestEmail: req.email,
+            requestReason: req.reason || '',
+            sourceRequestId: id,
             updatedAt: Date.now(),
           });
 
@@ -491,6 +594,8 @@ Otherwise, provide a helpful response about their calendar.`;
     .filter(p => selectedParticipants.includes(p.id))
     .map(p => p.name);
 
+  const availabilityDateCount = buildAvailabilityDates().length;
+
   return (
     <div className="space-y-8" style={{ fontFamily: 'Arial, sans-serif' }} dir={dir}>
       <PageTitle
@@ -503,7 +608,9 @@ Otherwise, provide a helpful response about their calendar.`;
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-white p-6 rounded-3xl shadow-sm border border-gray-100 gap-4">
         <div>
           <h2 className="text-2xl font-bold text-[#1A1A1A]">{format(currentDate, 'MMMM yyyy')}</h2>
-          <p className="text-xs text-gray-400 uppercase tracking-widest mt-1">{t('calendar.schedule')}</p>
+          <p className="text-xs text-gray-400 uppercase tracking-widest mt-1">
+            Unavailable by default. Add availability for bookable days.
+          </p>
         </div>
         <div className="flex items-center gap-4 flex-wrap">
           <div className="flex bg-stone-50 rounded-xl p-1 border border-gray-200">
@@ -544,13 +651,7 @@ Otherwise, provide a helpful response about their calendar.`;
             onClick={() => {
               setShowAvailabilityModal(true);
               setEditingAvailability(null);
-              setNewAvailability({
-                date: format(new Date(), 'yyyy-MM-dd'),
-                startTime: '08:00',
-                endTime: '17:00',
-                reason: '',
-                allDay: true,
-              });
+              resetAvailabilityForm();
             }}
             className="flex items-center gap-2 bg-green-50 hover:bg-green-100 text-green-700 px-5 py-3 rounded-xl font-bold transition-colors text-sm border border-green-200"
           >
@@ -668,17 +769,26 @@ Otherwise, provide a helpful response about their calendar.`;
             >
               <div className="text-sm font-bold text-gray-900 mb-2">{format(day, 'd')}</div>
               <div className="space-y-2">
+                {dayAvailability.length === 0 && (
+                  <div className="p-2 bg-gray-50 rounded-lg text-[10px] border border-gray-100 text-gray-400 font-bold">
+                    Unavailable by default
+                  </div>
+                )}
                 {dayAvailability.map(a => (
                   <div
                     key={a.id}
                     onClick={() => {
                       setEditingAvailability(a);
-                      setNewAvailability({
+                      setAvailabilityForm({
+                        mode: 'single',
                         date: a.date,
-                        startTime: a.startTime || '08:00',
-                        endTime: a.endTime || '17:00',
+                        startDate: a.date,
+                        endDate: a.date,
+                        selectedWeekdays: [0, 1, 2, 3, 4, 5, 6],
+                        startTime: a.startTime || '09:00',
+                        endTime: a.endTime || '20:00',
                         reason: a.reason || '',
-                        allDay: a.allDay,
+                        allDay: a.allDay || false,
                       });
                       setShowAvailabilityModal(true);
                     }}
@@ -709,7 +819,7 @@ Otherwise, provide a helpful response about their calendar.`;
                     }}
                     className="p-2 bg-stone-50 rounded-lg text-[10px] cursor-pointer group hover:bg-[#8B1E1E] transition-colors"
                   >
-                    <div className="font-bold group-hover:text-white line-clamp-1">{m.title}</div>
+                    <div className="font-bold group-hover:text-white line-clamp-1">{getMeetingDisplayTitle(m)}</div>
                     <div className="text-gray-500 group-hover:text-white/80">{m.startTime}</div>
                   </div>
                 ))}
@@ -737,6 +847,10 @@ Otherwise, provide a helpful response about their calendar.`;
             const meetingParticipants = (m.participantIds || []).map(id =>
               participants.find(p => p.id === id)
             ).filter(Boolean) as Participant[];
+
+            const requestEmail = getMeetingRequestEmail(m);
+            const requestReason = getMeetingRequestReason(m);
+
             return (
               <div key={m.id} className="flex flex-col md:flex-row md:items-center justify-between p-6 bg-stone-50 rounded-2xl border border-gray-100 hover:border-[#8B1E1E]/20 transition-all gap-4">
                 <div className="flex items-center gap-6">
@@ -745,14 +859,16 @@ Otherwise, provide a helpful response about their calendar.`;
                     <span className="text-2xl font-bold text-[#8B1E1E] leading-none">{format(parseISO(m.date), 'dd')}</span>
                   </div>
                   <div>
-                    <h4 className="text-lg font-bold">{m.title}</h4>
+                    <h4 className="text-lg font-bold">{getMeetingDisplayTitle(m)}</h4>
                     <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-500 mt-1">
                       <span className="flex items-center gap-1"><Clock size={12} /> {m.startTime} - {m.endTime}</span>
                       {m.location && <span className="flex items-center gap-1"><MapPin size={12} /> {m.location}</span>}
+                      {requestEmail && <span className="flex items-center gap-1"><Mail size={12} /> {requestEmail}</span>}
                       {meetingParticipants.length > 0 && (
                         <span className="flex items-center gap-1"><Users size={12} /> {meetingParticipants.map(p => p.name).join(', ')}</span>
                       )}
                     </div>
+                    {requestReason && <p className="text-xs text-gray-400 mt-1 italic">{requestReason}</p>}
                   </div>
                 </div>
                 <div className="flex items-center gap-3 self-end md:self-auto">
@@ -977,35 +1093,158 @@ Otherwise, provide a helpful response about their calendar.`;
       {/* Availability Modal */}
       {showAvailabilityModal && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
-          <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="bg-white w-full max-w-md rounded-3xl shadow-2xl overflow-hidden max-h-[90vh] overflow-y-auto">
+          <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="bg-white w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden max-h-[90vh] overflow-y-auto">
             <div className="p-6 border-b flex justify-between items-center bg-stone-50 sticky top-0 z-10">
-              <h3 className="text-xl font-bold text-green-700">{editingAvailability ? 'Edit Availability' : 'Mark Available'}</h3>
-              <button onClick={() => { setShowAvailabilityModal(false); setEditingAvailability(null); }} className="p-2 hover:bg-gray-200 rounded-full transition-colors"><X size={20} /></button>
+              <div>
+                <h3 className="text-xl font-bold text-green-700">{editingAvailability ? 'Edit Availability' : 'Mark Available'}</h3>
+                <p className="text-xs text-gray-400 mt-1">All dates are unavailable unless marked available here.</p>
+              </div>
+              <button onClick={() => { setShowAvailabilityModal(false); setEditingAvailability(null); resetAvailabilityForm(); }} className="p-2 hover:bg-gray-200 rounded-full transition-colors"><X size={20} /></button>
             </div>
             <form onSubmit={handleCreateAvailability} className="p-6 space-y-4">
-              <div className="space-y-1">
-                <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">Date</label>
-                <input required type="date" className="w-full px-4 py-3 bg-stone-50 border-none rounded-xl focus:ring-2 focus:ring-green-300 outline-none" value={newAvailability.date} onChange={e => setNewAvailability(p => ({ ...p, date: e.target.value }))} />
-              </div>
+              {!editingAvailability && (
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setAvailabilityForm(p => ({ ...p, mode: 'single' }))}
+                    className={`py-3 rounded-xl text-sm font-bold border transition-colors ${
+                      availabilityForm.mode === 'single'
+                        ? 'bg-green-600 text-white border-green-600'
+                        : 'bg-white text-green-700 border-green-200 hover:bg-green-50'
+                    }`}
+                  >
+                    Single Day
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAvailabilityForm(p => ({ ...p, mode: 'multiple' }))}
+                    className={`py-3 rounded-xl text-sm font-bold border transition-colors ${
+                      availabilityForm.mode === 'multiple'
+                        ? 'bg-green-600 text-white border-green-600'
+                        : 'bg-white text-green-700 border-green-200 hover:bg-green-50'
+                    }`}
+                  >
+                    Multiple Days
+                  </button>
+                </div>
+              )}
+
+              {(availabilityForm.mode === 'single' || editingAvailability) && (
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">Date</label>
+                  <input
+                    required
+                    type="date"
+                    className="w-full px-4 py-3 bg-stone-50 border-none rounded-xl focus:ring-2 focus:ring-green-300 outline-none"
+                    value={availabilityForm.date}
+                    onChange={e => setAvailabilityForm(p => ({ ...p, date: e.target.value }))}
+                  />
+                </div>
+              )}
+
+              {availabilityForm.mode === 'multiple' && !editingAvailability && (
+                <>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                      <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">Start Date</label>
+                      <input
+                        required
+                        type="date"
+                        className="w-full px-4 py-3 bg-stone-50 border-none rounded-xl focus:ring-2 focus:ring-green-300 outline-none"
+                        value={availabilityForm.startDate}
+                        onChange={e => setAvailabilityForm(p => ({ ...p, startDate: e.target.value }))}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">End Date</label>
+                      <input
+                        required
+                        type="date"
+                        className="w-full px-4 py-3 bg-stone-50 border-none rounded-xl focus:ring-2 focus:ring-green-300 outline-none"
+                        value={availabilityForm.endDate}
+                        onChange={e => setAvailabilityForm(p => ({ ...p, endDate: e.target.value }))}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">Days Included</label>
+                    <div className="grid grid-cols-7 gap-2">
+                      {[
+                        { day: 0, label: 'Sun' },
+                        { day: 1, label: 'Mon' },
+                        { day: 2, label: 'Tue' },
+                        { day: 3, label: 'Wed' },
+                        { day: 4, label: 'Thu' },
+                        { day: 5, label: 'Fri' },
+                        { day: 6, label: 'Sat' },
+                      ].map(item => (
+                        <button
+                          key={item.day}
+                          type="button"
+                          onClick={() => toggleAvailabilityWeekday(item.day)}
+                          className={`py-2 rounded-lg text-[10px] font-bold border transition-colors ${
+                            availabilityForm.selectedWeekdays.includes(item.day)
+                              ? 'bg-green-600 text-white border-green-600'
+                              : 'bg-white text-gray-400 border-gray-200 hover:bg-green-50 hover:text-green-700'
+                          }`}
+                        >
+                          {item.label}
+                        </button>
+                      ))}
+                    </div>
+                    <p className="text-xs text-gray-400">
+                      Selected dates to create: {availabilityDateCount}
+                    </p>
+                  </div>
+                </>
+              )}
+
               <div className="flex items-center gap-3">
-                <input type="checkbox" id="allDay" checked={newAvailability.allDay} onChange={e => setNewAvailability(p => ({ ...p, allDay: e.target.checked }))} className="w-4 h-4 rounded border-gray-300 text-green-600 focus:ring-green-500" />
-                <label htmlFor="allDay" className="text-sm font-bold text-gray-700">All Day</label>
+                <input
+                  type="checkbox"
+                  id="allDay"
+                  checked={availabilityForm.allDay}
+                  onChange={e => setAvailabilityForm(p => ({ ...p, allDay: e.target.checked }))}
+                  className="w-4 h-4 rounded border-gray-300 text-green-600 focus:ring-green-500"
+                />
+                <label htmlFor="allDay" className="text-sm font-bold text-gray-700">All Bookable Hours</label>
               </div>
-              {!newAvailability.allDay && (
+
+              {!availabilityForm.allDay && (
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1">
                     <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">Start Time</label>
-                    <input required type="time" className="w-full px-4 py-3 bg-stone-50 border-none rounded-xl focus:ring-2 focus:ring-green-300 outline-none" value={newAvailability.startTime} onChange={e => setNewAvailability(p => ({ ...p, startTime: e.target.value }))} />
+                    <input
+                      required
+                      type="time"
+                      className="w-full px-4 py-3 bg-stone-50 border-none rounded-xl focus:ring-2 focus:ring-green-300 outline-none"
+                      value={availabilityForm.startTime}
+                      onChange={e => setAvailabilityForm(p => ({ ...p, startTime: e.target.value }))}
+                    />
                   </div>
                   <div className="space-y-1">
                     <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">End Time</label>
-                    <input required type="time" className="w-full px-4 py-3 bg-stone-50 border-none rounded-xl focus:ring-2 focus:ring-green-300 outline-none" value={newAvailability.endTime} onChange={e => setNewAvailability(p => ({ ...p, endTime: e.target.value }))} />
+                    <input
+                      required
+                      type="time"
+                      className="w-full px-4 py-3 bg-stone-50 border-none rounded-xl focus:ring-2 focus:ring-green-300 outline-none"
+                      value={availabilityForm.endTime}
+                      onChange={e => setAvailabilityForm(p => ({ ...p, endTime: e.target.value }))}
+                    />
                   </div>
                 </div>
               )}
+
               <div className="space-y-1">
-                <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">Reason (Optional)</label>
-                <input type="text" placeholder="e.g., Office Hours, Counseling Available" className="w-full px-4 py-3 bg-stone-50 border-none rounded-xl focus:ring-2 focus:ring-green-300 outline-none" value={newAvailability.reason} onChange={e => setNewAvailability(p => ({ ...p, reason: e.target.value }))} />
+                <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">Reason / Label (Optional)</label>
+                <input
+                  type="text"
+                  placeholder="e.g., Office Hours, Counseling Available"
+                  className="w-full px-4 py-3 bg-stone-50 border-none rounded-xl focus:ring-2 focus:ring-green-300 outline-none"
+                  value={availabilityForm.reason}
+                  onChange={e => setAvailabilityForm(p => ({ ...p, reason: e.target.value }))}
+                />
               </div>
 
               <button disabled={loading} type="submit" className="w-full py-4 bg-green-600 text-white rounded-2xl font-bold shadow-xl shadow-green-600/10 hover:scale-[1.02] active:scale-98 transition-all flex items-center justify-center gap-2">
@@ -1014,7 +1253,7 @@ Otherwise, provide a helpful response about their calendar.`;
                 ) : (
                   <>
                     <Send size={16} />
-                    {editingAvailability ? 'Update Availability' : 'Mark Available'}
+                    {editingAvailability ? 'Update Availability' : `Mark ${availabilityForm.mode === 'multiple' ? availabilityDateCount : 1} Day${availabilityForm.mode === 'multiple' && availabilityDateCount !== 1 ? 's' : ''} Available`}
                   </>
                 )}
               </button>
