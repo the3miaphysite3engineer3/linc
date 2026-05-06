@@ -20,6 +20,7 @@ const FAITH_IDS = ['q1_1', 'q1_2', 'q1_3', 'q1_4', 'q1_5'];
 const VISION_IDS = ['v1', 'v2', 'v3', 'v4', 'v5', 'v6'];
 const TRAINEE_IDS = ['fullName', 'email', 'surveyDate', 'age', 'attendance', 'currentService', 'workContext', 'arabicFluency', 'englishFluency', 'otherLanguages'];
 const REQUIRED_TRAINEE = ['fullName', 'email', 'surveyDate', 'age', 'attendance'];
+const RESULT_EMAIL_RECIPIENTS = ['kasedra@proton.me', 'rev.ibrahim@lincministry.com'];
 
 interface GiftScores {
   A: number; B: number; C: number; D: number; E: number;
@@ -280,20 +281,22 @@ export default function AssessmentForm() {
           l.callingVision, ssep, visionLines.join('\n\n'),
         ].join('\n');
 
-        try {
-          await sendEmailViaEmailJS(trainee.email.trim(), {
-            fullName: trainee.fullName,
-            surveyDate: trainee.surveyDate,
-            age: trainee.age,
-            interfaceLanguageUsed: lang,
-            submittedAt,
-            primaryGift: pg,
-            secondaryGift: sg,
-            recommendedMinistry: rm,
-            fullReport,
-          });
-        } catch (emailErr) {
-          console.error('Email send failed:', emailErr);
+        for (const recipientEmail of RESULT_EMAIL_RECIPIENTS) {
+          try {
+            await sendEmailViaEmailJS(recipientEmail, {
+              fullName: trainee.fullName,
+              surveyDate: trainee.surveyDate,
+              age: trainee.age,
+              interfaceLanguageUsed: lang,
+              submittedAt,
+              primaryGift: pg,
+              secondaryGift: sg,
+              recommendedMinistry: rm,
+              fullReport,
+            });
+          } catch (emailErr) {
+            console.error(`Email send failed for ${recipientEmail}:`, emailErr);
+          }
         }
       }
 
