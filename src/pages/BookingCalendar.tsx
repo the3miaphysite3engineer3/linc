@@ -4,7 +4,9 @@ import { ref, onValue, push } from 'firebase/database';
 import { motion, AnimatePresence } from 'motion/react';
 import { useI18n } from '../i18n';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, addMonths, subMonths, isToday, startOfDay, isBefore } from 'date-fns';
-import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Clock, CheckCircle, AlertCircle, User, Mail, MessageSquare } from 'lucide-react';
+import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Clock, CheckCircle, AlertCircle, User, Mail, MessageSquare, Ban, Bot, X } from 'lucide-react';
+import AIBookingAssistant from '../components/AIBookingAssistant';
+import { sendEmailViaEmailJS } from '../services/gmail';
 
 const BUSINESS_START = 9;
 const BUSINESS_END = 17;
@@ -29,6 +31,8 @@ interface BusyBlock {
   date: string;
   startHour: number;
   endHour: number;
+  title: string;
+  type: 'meeting' | 'unavailable';
 }
 
 export default function BookingCalendar() {
@@ -43,27 +47,50 @@ export default function BookingCalendar() {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [isPastDay, setIsPastDay] = useState(false);
+  const [showAi, setShowAi] = useState(false);
+  const [pastors, setPastors] = useState<string[]>([]);
 
   useEffect(() => {
-    const fetchMeetings = () => {
-      const meetingsRef = ref(database, 'meetings/');
-      onValue(meetingsRef, (snapshot) => {
-        const data = snapshot.val();
-        const blocks: BusyBlock[] = [];
-        if (data) {
-          Object.values(data).forEach((val: any) => {
-            if (val.date && val.startTime && val.endTime) {
+    const meetingsRef = ref(database, 'meetings/');
+    onValue(meetingsRef, (snapshot) => {
+      const data = snapshot.val();
+      const blocks: BusyBlock[] = [];
+      if (data) {
+        Object.values(data).forEach((val: any) => {
+          if (val.date && val.startTime && val.endTime) {
+            blocks.push({
+              date: val.date,
+              startHour: timeToHour(val.startTime),
+              endHour: timeToHour(val.endTime),
+              title: val.title || 'Meeting',
+              type: 'meeting',
+            });
+          }
+        });
+      }
+
+      const unavailabilityRef = ref(database, 'unavailability/');
+      onValue(unavailabilityRef, (snap) => {
+        const uData = snap.val();
+        if (uData) {
+          Object.values(uData).forEach((val: any) => {
+            if (val.date) {
+              const startTime = val.startTime || '00:00';
+              const endTime = val.endTime || '23:59';
               blocks.push({
                 date: val.date,
-                startHour: timeToHour(val.startTime),
-                endHour: timeToHour(val.endTime),
+                startHour: timeToHour(startTime),
+                endHour: timeToHour(endTime),
+                title: val.reason || 'Unavailable',
+                type: 'unavailable',
               });
             }
           });
         }
+
         const requestsRef = ref(database, 'meetingRequests/');
-        onValue(requestsRef, (snap) => {
-          const reqData = snap.val();
+        onValue(requestsRef, (reqSnap) => {
+          const reqData = reqSnap.val();
           if (reqData) {
             Object.values(reqData).forEach((val: any) => {
               if (val.date && val.startTime && val.endTime) {
@@ -71,6 +98,8 @@ export default function BookingCalendar() {
                   date: val.date,
                   startHour: timeToHour(val.startTime),
                   endHour: timeToHour(val.endTime),
+                  title: `Request: ${val.name || 'Unknown'}`,
+                  type: 'meeting',
                 });
               }
             });
@@ -78,8 +107,22 @@ export default function BookingCalendar() {
           setBusyBlocks(blocks);
         });
       });
-    };
-    fetchMeetings();
+    });
+  }, []);
+
+  useEffect(() => {
+    const adminsRef = ref(database, 'admins/');
+    const unsubscribe = onValue(adminsRef, (snapshot) => {
+      const data = snapshot.val();
+      if (data) {
+        const emails: string[] = [];
+        Object.keys(data).forEach(k => {
+          emails.push(k.replace(/,/g, '.').toLowerCase().trim());
+        });
+        setPastors(emails);
+      }
+    });
+    return () => unsubscribe();
   }, []);
 
   useEffect(() => {
@@ -94,6 +137,11 @@ export default function BookingCalendar() {
     start: startOfMonth(currentDate),
     end: endOfMonth(currentDate),
   });
+
+  const getDayBlocks = (day: Date): BusyBlock[] => {
+    const dayStr = format(day, 'yyyy-MM-dd');
+    return busyBlocks.filter(b => b.date === dayStr);
+  };
 
   const isSlotBooked = (day: Date, hour: number): boolean => {
     const dayStr = format(day, 'yyyy-MM-dd');
@@ -131,7 +179,7 @@ export default function BookingCalendar() {
     setLoading(true);
     try {
       const dateStr = format(selectedDay, 'yyyy-MM-dd');
-      await push(ref(database, 'meetingRequests/'), {
+      const request = {
         name,
         email,
         date: dateStr,
@@ -140,11 +188,25 @@ export default function BookingCalendar() {
         reason,
         status: 'pending',
         createdAt: Date.now(),
-      });
+      };
+      await push(ref(database, 'meetingRequests/'), request);
+
+      for (const pastorEmail of pastors) {
+        try {
+          await sendEmailViaEmailJS(pastorEmail, {
+            subject: `New Meeting Request from ${name}`,
+            fullReport: `A new meeting request has been submitted:\n\nName: ${name}\nEmail: ${email}\nDate: ${dateStr}\nTime: ${hourToTime(selectedSlot)} - ${hourToTime(selectedSlot + SLOT_DURATION)}\nReason: ${reason}\n\nPlease log in to the dashboard to accept or reject this request.`,
+          });
+        } catch (err) {
+          console.error(`Failed to notify pastor ${pastorEmail}:`, err);
+        }
+      }
+
       setSuccess(true);
       setName('');
       setEmail('');
       setReason('');
+      setSelectedSlot(null);
     } catch (err) {
       console.error(err);
       alert(t('booking.failed'));
@@ -159,26 +221,40 @@ export default function BookingCalendar() {
     return 'available';
   };
 
+  const daySlots = selectedDay ? busyBlocks.filter(b => b.date === format(selectedDay, 'yyyy-MM-dd')) : [];
+
   return (
-    <div className="max-w-6xl mx-auto px-4 py-8" dir={dir} style={{ fontFamily: 'Arial, sans-serif' }}>
-      <div className="text-center mb-8">
-        <h1 className="text-2xl font-bold text-[#8b1e1e] mb-2 flex items-center justify-center gap-2">
-          <CalendarIcon size={24} />
-          {t('booking.pageTitle')}
-        </h1>
-        <p className="text-gray-500 text-sm">{t('booking.pageDesc')}</p>
+    <div className="space-y-8 max-w-5xl mx-auto px-4 py-8" dir={dir} style={{ fontFamily: 'Arial, sans-serif' }}>
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-[#8b1e1e] flex items-center gap-2">
+            <CalendarIcon size={22} />
+            {t('booking.pageTitle')}
+          </h1>
+          <p className="text-gray-500 text-sm mt-1">{t('booking.pageDesc')}</p>
+        </div>
+        <button
+          onClick={() => setShowAi(true)}
+          className="flex items-center gap-2 bg-purple-50 hover:bg-purple-100 text-purple-700 px-5 py-3 rounded-xl font-bold transition-colors text-sm border border-purple-200"
+        >
+          <Bot size={16} />
+          AI Assistant
+        </button>
       </div>
 
-      <div className="flex flex-wrap justify-center gap-4 mb-6 text-xs font-bold">
+      <div className="flex flex-wrap justify-center gap-4 text-xs font-bold">
         <div className="flex items-center gap-2"><div className="w-4 h-4 rounded bg-red-100 border border-red-200"></div>{t('booking.legendInfeasible')}</div>
-        <div className="flex items-center gap-2"><div className="w-4 h-4 rounded bg-green-100 border border-green-200"></div>{t('booking.legendAvailable')}</div>
+        <div className="flex items-center gap-2"><div className="w-4 h-4 rounded bg-green-50 border border-green-200"></div>{t('booking.legendAvailable')}</div>
         <div className="flex items-center gap-2"><div className="w-4 h-4 rounded bg-gray-200 border border-gray-300"></div>{t('booking.legendBooked')}</div>
       </div>
 
       <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-6">
         <div className="flex items-center justify-between mb-6">
           <button onClick={() => setCurrentDate(subMonths(currentDate, 1))} className="p-2 hover:bg-gray-100 rounded-full transition-colors"><ChevronLeft size={20} /></button>
-          <h2 className="text-xl font-bold text-[#1A1A1A]">{format(currentDate, 'MMMM yyyy')}</h2>
+          <div className="text-center">
+            <h2 className="text-xl font-bold text-[#1A1A1A]">{format(currentDate, 'MMMM yyyy')}</h2>
+            <p className="text-xs text-gray-400 uppercase tracking-widest mt-1">{t('calendar.schedule')}</p>
+          </div>
           <button onClick={() => setCurrentDate(addMonths(currentDate, 1))} className="p-2 hover:bg-gray-100 rounded-full transition-colors"><ChevronRight size={20} /></button>
         </div>
 
@@ -193,6 +269,7 @@ export default function BookingCalendar() {
             <div key={`empty-${i}`} />
           ))}
           {days.map(day => {
+            const dayBlocks = getDayBlocks(day);
             const isPast = isBefore(startOfDay(day), startOfDay(new Date()));
             const isSelected = selectedDay && isSameDay(day, selectedDay);
             const today = isToday(day);
@@ -201,9 +278,9 @@ export default function BookingCalendar() {
                 key={day.toISOString()}
                 onClick={() => handleDayClick(day)}
                 disabled={isPast}
-                className={`min-h-[80px] rounded-xl border transition-all text-center p-2 ${
+                className={`min-h-[90px] rounded-xl border transition-all text-center p-2 flex flex-col ${
                   isPast
-                    ? 'bg-red-50 border-red-100 text-gray-300 cursor-not-allowed'
+                    ? 'bg-red-50 border-red-100 text-gray-300 cursor-not-allowed opacity-50'
                     : isSelected
                     ? 'bg-[#8b1e1e] border-[#8b1e1e] text-white shadow-lg'
                     : today
@@ -213,6 +290,22 @@ export default function BookingCalendar() {
               >
                 <div className={`text-sm font-bold ${isSelected ? 'text-white' : ''}`}>{format(day, 'd')}</div>
                 {isPast && <div className="text-[8px] text-gray-300 mt-1">✕</div>}
+                {!isPast && dayBlocks.length > 0 && (
+                  <div className="flex flex-col gap-0.5 mt-1 flex-1 justify-end">
+                    {dayBlocks.slice(0, 2).map((b, i) => (
+                      <div key={i} className={`text-[8px] px-1 py-0.5 rounded truncate ${
+                        b.type === 'unavailable'
+                          ? (isSelected ? 'bg-white/20 text-white/80' : 'bg-red-100 text-red-600')
+                          : (isSelected ? 'bg-white/20 text-white/80' : 'bg-amber-100 text-amber-600')
+                      }`}>
+                        {b.title}
+                      </div>
+                    ))}
+                    {dayBlocks.length > 2 && (
+                      <div className={`text-[8px] ${isSelected ? 'text-white/60' : 'text-gray-400'}`}>+{dayBlocks.length - 2} more</div>
+                    )}
+                  </div>
+                )}
               </button>
             );
           })}
@@ -221,12 +314,41 @@ export default function BookingCalendar() {
 
       <AnimatePresence>
         {selectedDay && !isPastDay && (
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 20 }} className="mt-6 bg-white rounded-3xl shadow-sm border border-gray-100 p-6">
-            <h3 className="text-lg font-bold mb-4 flex items-center gap-2 text-[#8b1e1e]">
-              <Clock size={18} />
-              {format(selectedDay, 'EEEE, MMMM d, yyyy')}
-            </h3>
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 20 }} className="bg-white rounded-3xl shadow-sm border border-gray-100 p-6">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-lg font-bold flex items-center gap-2 text-[#8b1e1e]">
+                <Clock size={18} />
+                {format(selectedDay, 'EEEE, MMMM d, yyyy')}
+              </h3>
+              <button onClick={() => setSelectedDay(null)} className="p-2 hover:bg-gray-100 rounded-full transition-colors"><X size={18} /></button>
+            </div>
 
+            {/* Blocked Slots */}
+            {daySlots.length > 0 && (
+              <div className="mb-6 bg-stone-50 rounded-xl p-4 border border-gray-100">
+                <div className="flex items-center gap-2 mb-3">
+                  <Ban size={14} className="text-red-500" />
+                  <span className="text-xs font-bold text-gray-500 uppercase tracking-widest">Blocked Slots</span>
+                </div>
+                <div className="space-y-2">
+                  {daySlots.map((slot, i) => (
+                    <div key={i} className={`flex items-center justify-between px-3 py-2 rounded-lg text-xs font-bold ${
+                      slot.type === 'unavailable'
+                        ? 'bg-red-100 text-red-700 border border-red-200'
+                        : 'bg-amber-100 text-amber-700 border border-amber-200'
+                    }`}>
+                      <div className="flex items-center gap-2">
+                        {slot.type === 'unavailable' ? <Ban size={12} /> : <CalendarIcon size={12} />}
+                        <span>{slot.title}</span>
+                      </div>
+                      <span className="opacity-75">{hourToTime(slot.startHour)} - {hourToTime(slot.endHour)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Time Slots */}
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 mb-6">
               {Array.from({ length: BUSINESS_END - BUSINESS_START }).map((_, i) => {
                 const hour = BUSINESS_START + i;
@@ -238,11 +360,11 @@ export default function BookingCalendar() {
                     onClick={() => handleSlotClick(hour)}
                     className={`relative p-3 rounded-xl border text-sm font-bold transition-all ${
                       status === 'booked'
-                        ? 'bg-gray-200 border-gray-300 text-gray-400 cursor-not-allowed'
+                        ? 'bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed'
                         : status === 'infeasible'
                         ? 'bg-red-50 border-red-200 text-red-300 cursor-not-allowed'
                         : isSel
-                        ? 'bg-green-200 border-green-500 text-green-800 shadow-md scale-105'
+                        ? 'bg-[#8b1e1e] border-[#8b1e1e] text-white shadow-md scale-105'
                         : 'bg-green-50 border-green-200 text-green-700 hover:bg-green-100 hover:scale-102 cursor-pointer'
                     }`}
                   >
@@ -255,6 +377,7 @@ export default function BookingCalendar() {
               })}
             </div>
 
+            {/* Booking Form */}
             {selectedSlot !== null && !success && (
               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-stone-50 rounded-2xl p-5 border border-gray-100">
                 <h4 className="font-bold text-sm text-gray-500 mb-3 uppercase tracking-widest">
@@ -294,11 +417,13 @@ export default function BookingCalendar() {
       </AnimatePresence>
 
       {selectedDay && isPastDay && (
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mt-6 bg-red-50 rounded-2xl p-5 border border-red-100 text-center">
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-red-50 rounded-2xl p-5 border border-red-100 text-center">
           <AlertCircle size={24} className="text-red-500 mx-auto mb-2" />
           <p className="text-red-600 font-bold">{t('booking.pastDay')}</p>
         </motion.div>
       )}
+
+      <AIBookingAssistant isOpen={showAi} onClose={() => setShowAi(false)} />
     </div>
   );
 }

@@ -1,97 +1,119 @@
 import { useState, useEffect } from 'react';
 import { database } from '../firebase';
-import { ref, push, onValue } from 'firebase/database';
-import { motion } from 'motion/react';
-import { X, Calendar as CalendarIcon, Clock, Send, CheckCircle, User, Mail, MessageSquare, AlertTriangle, Sparkles, Bot, Ban, CalendarCheck } from 'lucide-react';
+import { ref, onValue, push } from 'firebase/database';
+import { motion, AnimatePresence } from 'motion/react';
 import { useI18n } from '../i18n';
-import { format, parseISO } from 'date-fns';
-import type { MeetingRequest } from '../types';
-import { findAvailableSlot, type CalendarContext, type AISuggestion } from '../services/gemini';
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, addMonths, subMonths, isToday, startOfDay, isBefore } from 'date-fns';
+import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Clock, CheckCircle, AlertCircle, User, Mail, MessageSquare, Ban, Bot, X } from 'lucide-react';
+import AIBookingAssistant from '../components/AIBookingAssistant';
 import { sendEmailViaEmailJS } from '../services/gmail';
-import AIBookingAssistant from './AIBookingAssistant';
+
+const BUSINESS_START = 9;
+const BUSINESS_END = 17;
+const SLOT_DURATION = 1;
+
+function hourToLabel(h: number, locale: 'en' | 'ar'): string {
+  const isAr = locale === 'ar';
+  const period = h >= 12 ? (isAr ? 'م' : 'PM') : (isAr ? 'ص' : 'AM');
+  const hour12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
+  return `${hour12}:00 ${period}`;
+}
+
+function hourToTime(h: number): string {
+  return `${String(h).padStart(2, '0')}:00`;
+}
+
+function timeToHour(t: string): number {
+  return parseInt(t.split(':')[0], 10);
+}
+
+interface BusyBlock {
+  date: string;
+  startHour: number;
+  endHour: number;
+  title: string;
+  type: 'meeting' | 'unavailable';
+}
 
 interface BookMeetingProps {
-  isOpen: boolean;
-  onClose: () => void;
+  isOpen?: boolean;
+  onClose?: () => void;
   preSelectedDate?: string;
-  preSelectedTime?: string;
 }
 
-interface BusySlot {
-  title: string;
-  date: string;
-  startTime: string;
-  endTime: string;
-  type?: 'meeting' | 'unavailable';
-}
-
-function timesOverlap(s1: string, e1: string, s2: string, e2: string): boolean {
-  const toMin = (t: string) => {
-    const [h, m] = t.split(':').map(Number);
-    return h * 60 + m;
-  };
-  return toMin(s1) < toMin(e2) && toMin(s2) < toMin(e1);
-}
-
-export default function BookMeeting({ isOpen, onClose, preSelectedDate, preSelectedTime }: BookMeetingProps) {
-  const { t, dir } = useI18n();
-  const [mode, setMode] = useState<'form' | 'ai'>('form');
+export default function BookMeeting({ isOpen, onClose, preSelectedDate }: BookMeetingProps = {}) {
+  const { t, dir, locale } = useI18n();
+  const [currentDate, setCurrentDate] = useState(preSelectedDate ? new Date(preSelectedDate) : new Date());
+  const [selectedDay, setSelectedDay] = useState<Date | null>(null);
+  const [busyBlocks, setBusyBlocks] = useState<BusyBlock[]>([]);
+  const [selectedSlot, setSelectedSlot] = useState<number | null>(null);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
-  const [date, setDate] = useState(preSelectedDate || format(new Date(), 'yyyy-MM-dd'));
-  const [startTime, setStartTime] = useState(preSelectedTime || '10:00');
-  const [endTime, setEndTime] = useState(preSelectedTime || '11:00');
   const [reason, setReason] = useState('');
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
-  const [busySlots, setBusySlots] = useState<BusySlot[]>([]);
-  const [isBusy, setIsBusy] = useState(false);
-  const [aiSuggestion, setAiSuggestion] = useState<AISuggestion | null>(null);
-  const [aiLoading, setAiLoading] = useState(false);
+  const [showAi, setShowAi] = useState(false);
+  const [isPastDay, setIsPastDay] = useState(false);
   const [pastors, setPastors] = useState<string[]>([]);
-  const [meetings, setMeetings] = useState<{ title: string; date: string; startTime: string; endTime: string }[]>([]);
-  const [unavailability, setUnavailability] = useState<BusySlot[]>([]);
 
   useEffect(() => {
     const meetingsRef = ref(database, 'meetings/');
-    const unsubscribe = onValue(meetingsRef, (snapshot) => {
+    onValue(meetingsRef, (snapshot) => {
       const data = snapshot.val();
+      const blocks: BusyBlock[] = [];
       if (data) {
-        const slots: BusySlot[] = Object.values(data).map((val: any) => ({
-          title: val.title || '',
-          date: val.date,
-          startTime: val.startTime,
-          endTime: val.endTime,
-          type: 'meeting' as const,
-        }));
-        setBusySlots(slots);
-        setMeetings(slots);
-      } else {
-        setBusySlots([]);
-        setMeetings([]);
+        Object.values(data).forEach((val: any) => {
+          if (val.date && val.startTime && val.endTime) {
+            blocks.push({
+              date: val.date,
+              startHour: timeToHour(val.startTime),
+              endHour: timeToHour(val.endTime),
+              title: val.title || 'Meeting',
+              type: 'meeting',
+            });
+          }
+        });
       }
-    });
-    return () => unsubscribe();
-  }, []);
 
-  useEffect(() => {
-    const unavailabilityRef = ref(database, 'unavailability/');
-    const unsubscribe = onValue(unavailabilityRef, (snapshot) => {
-      const data = snapshot.val();
-      if (data) {
-        const slots: BusySlot[] = Object.values(data).map((val: any) => ({
-          title: val.reason || 'Unavailable',
-          date: val.date,
-          startTime: val.startTime || '00:00',
-          endTime: val.endTime || '23:59',
-          type: 'unavailable' as const,
-        }));
-        setUnavailability(slots);
-      } else {
-        setUnavailability([]);
-      }
+      const unavailabilityRef = ref(database, 'unavailability/');
+      onValue(unavailabilityRef, (snap) => {
+        const uData = snap.val();
+        if (uData) {
+          Object.values(uData).forEach((val: any) => {
+            if (val.date) {
+              const startTime = val.startTime || '00:00';
+              const endTime = val.endTime || '23:59';
+              blocks.push({
+                date: val.date,
+                startHour: timeToHour(startTime),
+                endHour: timeToHour(endTime),
+                title: val.reason || 'Unavailable',
+                type: 'unavailable',
+              });
+            }
+          });
+        }
+
+        const requestsRef = ref(database, 'meetingRequests/');
+        onValue(requestsRef, (reqSnap) => {
+          const reqData = reqSnap.val();
+          if (reqData) {
+            Object.values(reqData).forEach((val: any) => {
+              if (val.date && val.startTime && val.endTime) {
+                blocks.push({
+                  date: val.date,
+                  startHour: timeToHour(val.startTime),
+                  endHour: timeToHour(val.endTime),
+                  title: `Request: ${val.name || 'Unknown'}`,
+                  type: 'meeting',
+                });
+              }
+            });
+          }
+          setBusyBlocks(blocks);
+        });
+      });
     });
-    return () => unsubscribe();
   }, []);
 
   useEffect(() => {
@@ -101,8 +123,7 @@ export default function BookMeeting({ isOpen, onClose, preSelectedDate, preSelec
       if (data) {
         const emails: string[] = [];
         Object.keys(data).forEach(k => {
-          const email = k.replace(/,/g, '.').toLowerCase().trim();
-          emails.push(email);
+          emails.push(k.replace(/,/g, '.').toLowerCase().trim());
         });
         setPastors(emails);
       }
@@ -110,66 +131,74 @@ export default function BookMeeting({ isOpen, onClose, preSelectedDate, preSelec
     return () => unsubscribe();
   }, []);
 
-  const daySlots = [...busySlots.filter(s => s.date === date), ...unavailability.filter(s => s.date === date)]
-    .sort((a, b) => a.startTime.localeCompare(b.startTime));
+  useEffect(() => {
+    if (preSelectedDate) {
+      const d = new Date(preSelectedDate);
+      setSelectedDay(d);
+      setCurrentDate(d);
+    }
+  }, [preSelectedDate]);
 
   useEffect(() => {
-    const allBusy = [...busySlots, ...unavailability];
-    const conflict = allBusy.some(slot =>
-      slot.date === date && timesOverlap(startTime, endTime, slot.startTime, slot.endTime)
-    );
-    setIsBusy(conflict);
-  }, [date, startTime, endTime, busySlots, unavailability]);
-
-  useEffect(() => {
-    console.log('BookMeeting - date:', date);
-    console.log('BookMeeting - busySlots:', busySlots);
-    console.log('BookMeeting - unavailability:', unavailability);
-    console.log('BookMeeting - daySlots:', daySlots);
-  }, [date, busySlots, unavailability, daySlots]);
-
-  const formattedDate = (() => {
-    try {
-      return format(parseISO(date), 'MMM d, yyyy');
-    } catch {
-      return date;
+    if (selectedDay && isBefore(startOfDay(selectedDay), startOfDay(new Date()))) {
+      setIsPastDay(true);
+    } else {
+      setIsPastDay(false);
     }
-  })();
+  }, [selectedDay]);
 
-  const handleGetAiSuggestion = async () => {
-    setAiLoading(true);
-    try {
-      const context: CalendarContext = {
-        meetings,
-        unavailability,
-      };
-      const suggestion = await findAvailableSlot(context, 60, date, startTime);
-      setAiSuggestion(suggestion);
-      setDate(suggestion.suggestedDate);
-      setStartTime(suggestion.suggestedStartTime);
-      setEndTime(suggestion.suggestedEndTime);
-    } catch (err) {
-      console.error('AI suggestion failed:', err);
-      alert('Failed to get AI suggestion. Please try again.');
-    } finally {
-      setAiLoading(false);
+  const days = eachDayOfInterval({
+    start: startOfMonth(currentDate),
+    end: endOfMonth(currentDate),
+  });
+
+  const getDayBlocks = (day: Date): BusyBlock[] => {
+    const dayStr = format(day, 'yyyy-MM-dd');
+    return busyBlocks.filter(b => b.date === dayStr);
+  };
+
+  const isSlotBooked = (day: Date, hour: number): boolean => {
+    const dayStr = format(day, 'yyyy-MM-dd');
+    return busyBlocks.some(b => b.date === dayStr && hour >= b.startHour && hour < b.endHour);
+  };
+
+  const isSlotInfeasible = (day: Date, hour: number): boolean => {
+    if (hour < BUSINESS_START || hour >= BUSINESS_END) return true;
+    const dayStr = format(day, 'yyyy-MM-dd');
+    const todayStr = format(new Date(), 'yyyy-MM-dd');
+    if (dayStr === todayStr) {
+      const now = new Date();
+      if (hour <= now.getHours()) return true;
     }
+    if (isBefore(startOfDay(day), startOfDay(new Date()))) return true;
+    return false;
+  };
+
+  const handleDayClick = (day: Date) => {
+    if (isBefore(startOfDay(day), startOfDay(new Date()))) return;
+    setSelectedDay(day);
+    setSelectedSlot(null);
+    setSuccess(false);
+  };
+
+  const handleSlotClick = (hour: number) => {
+    if (!selectedDay || isSlotBooked(selectedDay, hour) || isSlotInfeasible(selectedDay, hour)) return;
+    setSelectedSlot(hour);
+    setSuccess(false);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (isBusy) {
-      alert(t('booking.timeConflict'));
-      return;
-    }
+    if (!selectedDay || selectedSlot === null) return;
     setLoading(true);
     try {
-      const request: Omit<MeetingRequest, 'id'> = {
+      const dateStr = format(selectedDay, 'yyyy-MM-dd');
+      const request = {
         name,
         email,
-        date,
-        startTime,
-        endTime,
+        date: dateStr,
+        startTime: hourToTime(selectedSlot),
+        endTime: hourToTime(selectedSlot + SLOT_DURATION),
         reason,
         status: 'pending',
         createdAt: Date.now(),
@@ -180,131 +209,139 @@ export default function BookMeeting({ isOpen, onClose, preSelectedDate, preSelec
         try {
           await sendEmailViaEmailJS(pastorEmail, {
             subject: `New Meeting Request from ${name}`,
-            fullReport: `A new meeting request has been submitted:\n\nName: ${name}\nEmail: ${email}\nDate: ${date}\nTime: ${startTime} - ${endTime}\nReason: ${reason}\n\nPlease log in to the dashboard to accept or reject this request.`,
+            fullReport: `A new meeting request has been submitted:\n\nName: ${name}\nEmail: ${email}\nDate: ${dateStr}\nTime: ${hourToTime(selectedSlot)} - ${hourToTime(selectedSlot + SLOT_DURATION)}\nReason: ${reason}\n\nPlease log in to the dashboard to accept or reject this request.`,
           });
-        } catch (err) {
-          console.error(`Failed to notify pastor ${pastorEmail}:`, err);
+        } catch {
+          // silently continue
         }
       }
 
       setSuccess(true);
-    } catch (err) {
-      console.error(err);
+      setName('');
+      setEmail('');
+      setReason('');
+      setSelectedSlot(null);
+    } catch {
       alert(t('booking.failed'));
     } finally {
       setLoading(false);
     }
   };
 
-  const handleClose = () => {
-    onClose();
-    setTimeout(() => {
-      setName('');
-      setEmail('');
-      setDate(format(new Date(), 'yyyy-MM-dd'));
-      setStartTime('10:00');
-      setEndTime('11:00');
-      setReason('');
-      setSuccess(false);
-    }, 300);
+  const slotStatus = (day: Date, hour: number): 'booked' | 'infeasible' | 'available' => {
+    if (isSlotBooked(day, hour)) return 'booked';
+    if (isSlotInfeasible(day, hour)) return 'infeasible';
+    return 'available';
   };
 
-  if (!isOpen) return null;
+  const daySlots = selectedDay ? busyBlocks.filter(b => b.date === format(selectedDay, 'yyyy-MM-dd')) : [];
 
-  return (
-    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[70] flex items-center justify-center p-4" onClick={handleClose}>
-      <motion.div
-        initial={{ scale: 0.9, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        exit={{ scale: 0.9, opacity: 0 }}
-        className="bg-white w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden max-h-[90vh] overflow-y-auto"
-        onClick={e => e.stopPropagation()}
-        dir={dir}
-        style={{ fontFamily: 'Arial, sans-serif' }}
-      >
-        <div className="p-6 border-b flex justify-between items-center bg-stone-50 sticky top-0 z-10">
-          <h3 className="text-xl font-bold text-[#8B1E1E] flex items-center gap-2">
-            <CalendarIcon size={20} />
-            {t('booking.title')}
-          </h3>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setMode(mode === 'form' ? 'ai' : 'form')}
-              className="p-2 hover:bg-purple-100 rounded-full transition-colors text-purple-600"
-              title="Toggle AI Assistant"
-            >
-              <Bot size={20} />
-            </button>
-            <button onClick={handleClose} className="p-2 hover:bg-gray-200 rounded-full transition-colors"><X size={20} /></button>
+  const content = (
+    <div className="space-y-8 max-w-5xl mx-auto px-4 py-8" dir={dir} style={{ fontFamily: 'Arial, sans-serif' }}>
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-[#8b1e1e] flex items-center gap-2">
+            <CalendarIcon size={22} />
+            {t('booking.pageTitle')}
+          </h1>
+          <p className="text-gray-500 text-sm mt-1">{t('booking.pageDesc')}</p>
+        </div>
+        <button
+          onClick={() => setShowAi(true)}
+          className="flex items-center gap-2 bg-purple-50 hover:bg-purple-100 text-purple-700 px-5 py-3 rounded-xl font-bold transition-colors text-sm border border-purple-200"
+        >
+          <Bot size={16} />
+          AI Assistant
+        </button>
+      </div>
+
+      <div className="flex flex-wrap justify-center gap-4 text-xs font-bold">
+        <div className="flex items-center gap-2"><div className="w-4 h-4 rounded bg-red-50 border border-red-200"></div>{t('booking.legendInfeasible')}</div>
+        <div className="flex items-center gap-2"><div className="w-4 h-4 rounded bg-green-50 border border-green-200"></div>{t('booking.legendAvailable')}</div>
+        <div className="flex items-center gap-2"><div className="w-4 h-4 rounded bg-gray-200 border border-gray-300"></div>{t('booking.legendBooked')}</div>
+      </div>
+
+      <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-6">
+        <div className="flex items-center justify-between mb-6">
+          <button onClick={() => setCurrentDate(subMonths(currentDate, 1))} className="p-2 hover:bg-gray-100 rounded-full transition-colors"><ChevronLeft size={20} /></button>
+          <div className="text-center">
+            <h2 className="text-xl font-bold text-[#1A1A1A]">{format(currentDate, 'MMMM yyyy')}</h2>
+            <p className="text-xs text-gray-400 uppercase tracking-widest mt-1">{t('calendar.schedule')}</p>
           </div>
+          <button onClick={() => setCurrentDate(addMonths(currentDate, 1))} className="p-2 hover:bg-gray-100 rounded-full transition-colors"><ChevronRight size={20} /></button>
         </div>
 
-        {mode === 'ai' ? (
-          <AIBookingAssistant isOpen={true} onClose={handleClose} preSelectedDate={preSelectedDate} />
-        ) : success ? (
-          <div className="p-12 text-center">
-            <div className="w-20 h-20 bg-green-50 rounded-full flex items-center justify-center mx-auto mb-6">
-              <CheckCircle size={40} className="text-green-600" />
-            </div>
-            <h4 className="text-2xl font-bold text-[#8B1E1E] mb-3">{t('booking.successTitle')}</h4>
-            <p className="text-gray-500 mb-8">{t('booking.successDesc')}</p>
-            <button onClick={handleClose} className="px-8 py-3 bg-[#8B1E1E] text-white rounded-full font-bold hover:bg-[#641414] transition-colors">
-              {t('booking.close')}
-            </button>
-          </div>
-        ) : (
-          <form onSubmit={handleSubmit} className="p-6 space-y-4">
-            <div className="space-y-1">
-              <label className="text-xs font-bold text-gray-400 uppercase tracking-widest flex items-center gap-1">
-                <User size={12} />
-                {t('booking.name')}
-              </label>
-              <input required type="text" className="w-full px-4 py-3 bg-stone-50 border-none rounded-xl focus:ring-2 focus:ring-[#8B1E1E]/20 outline-none" value={name} onChange={e => setName(e.target.value)} placeholder={t('booking.namePlaceholder')} />
+        <div className="grid grid-cols-7 gap-2 mb-2">
+          {[t('calendar.sun'), t('calendar.mon'), t('calendar.tue'), t('calendar.wed'), t('calendar.thu'), t('calendar.fri'), t('calendar.sat')].map(d => (
+            <div key={d} className="text-center text-[10px] uppercase tracking-widest text-gray-400 font-bold">{d}</div>
+          ))}
+        </div>
+
+        <div className="grid grid-cols-7 gap-2">
+          {Array.from({ length: startOfMonth(currentDate).getDay() }).map((_, i) => (
+            <div key={`empty-${i}`} />
+          ))}
+          {days.map(day => {
+            const dayBlocks = getDayBlocks(day);
+            const isPast = isBefore(startOfDay(day), startOfDay(new Date()));
+            const isSelected = selectedDay && isSameDay(day, selectedDay);
+            const today = isToday(day);
+            return (
+              <button
+                key={day.toISOString()}
+                onClick={() => handleDayClick(day)}
+                disabled={isPast}
+                className={`min-h-[90px] rounded-xl border transition-all text-center p-2 flex flex-col ${
+                  isPast
+                    ? 'bg-red-50 border-red-100 text-gray-300 cursor-not-allowed opacity-50'
+                    : isSelected
+                    ? 'bg-[#8b1e1e] border-[#8b1e1e] text-white shadow-lg'
+                    : today
+                    ? 'bg-green-50 border-green-300 text-[#8b1e1e] font-bold'
+                    : 'bg-white border-gray-200 hover:border-[#8b1e1e]/30 hover:bg-stone-50'
+                }`}
+              >
+                <div className={`text-sm font-bold ${isSelected ? 'text-white' : ''}`}>{format(day, 'd')}</div>
+                {isPast && <div className="text-[8px] text-gray-300 mt-1">✕</div>}
+                {!isPast && dayBlocks.length > 0 && (
+                  <div className="flex flex-col gap-0.5 mt-1 flex-1 justify-end">
+                    {dayBlocks.slice(0, 2).map((b, i) => (
+                      <div key={i} className={`text-[8px] px-1 py-0.5 rounded truncate ${
+                        b.type === 'unavailable'
+                          ? (isSelected ? 'bg-white/20 text-white/80' : 'bg-red-100 text-red-600')
+                          : (isSelected ? 'bg-white/20 text-white/80' : 'bg-amber-100 text-amber-600')
+                      }`}>
+                        {b.title}
+                      </div>
+                    ))}
+                    {dayBlocks.length > 2 && (
+                      <div className={`text-[8px] ${isSelected ? 'text-white/60' : 'text-gray-400'}`}>+{dayBlocks.length - 2} more</div>
+                    )}
+                  </div>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <AnimatePresence>
+        {selectedDay && !isPastDay && (
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 20 }} className="bg-white rounded-3xl shadow-sm border border-gray-100 p-6">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-lg font-bold flex items-center gap-2 text-[#8b1e1e]">
+                <Clock size={18} />
+                {format(selectedDay, 'EEEE, MMMM d, yyyy')}
+              </h3>
+              <button onClick={() => setSelectedDay(null)} className="p-2 hover:bg-gray-100 rounded-full transition-colors"><X size={18} /></button>
             </div>
 
-            <div className="space-y-1">
-              <label className="text-xs font-bold text-gray-400 uppercase tracking-widest flex items-center gap-1">
-                <Mail size={12} />
-                {t('booking.email')}
-              </label>
-              <input required type="email" className="w-full px-4 py-3 bg-stone-50 border-none rounded-xl focus:ring-2 focus:ring-[#8B1E1E]/20 outline-none" value={email} onChange={e => setEmail(e.target.value)} placeholder={t('booking.emailPlaceholder')} />
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1">
-              <label className="text-xs font-bold text-gray-400 uppercase tracking-widest flex items-center gap-1">
-                <CalendarIcon size={12} />
-                {t('booking.date')}
-              </label>
-              <input required type="date" min={format(new Date(), 'yyyy-MM-dd')} className="w-full px-4 py-3 bg-stone-50 border-none rounded-xl focus:ring-2 focus:ring-[#8B1E1E]/20 outline-none" value={date} onChange={e => setDate(e.target.value)} />
-            </div>
-            <div className="space-y-1">
-              <label className="text-xs font-bold text-gray-400 uppercase tracking-widest flex items-center gap-1">
-                <Clock size={12} />
-                {t('booking.time')}
-              </label>
-              <div className="flex gap-2">
-                <input required type="time" className="flex-1 px-3 py-3 bg-stone-50 border-none rounded-xl focus:ring-2 focus:ring-[#8B1E1E]/20 outline-none text-sm" value={startTime} onChange={e => setStartTime(e.target.value)} />
-                <input required type="time" className="flex-1 px-3 py-3 bg-stone-50 border-none rounded-xl focus:ring-2 focus:ring-[#8B1E1E]/20 outline-none text-sm" value={endTime} onChange={e => setEndTime(e.target.value)} />
-              </div>
-              {isBusy && (
-                <div className="flex items-center gap-2 text-amber-700 bg-amber-50 px-3 py-2 rounded-lg text-xs font-bold">
-                  <AlertTriangle size={14} />
-                  {t('booking.timeConflict')}
+            {daySlots.length > 0 && (
+              <div className="mb-6 bg-stone-50 rounded-xl p-4 border border-gray-100">
+                <div className="flex items-center gap-2 mb-3">
+                  <Ban size={14} className="text-red-500" />
+                  <span className="text-xs font-bold text-gray-500 uppercase tracking-widest">Blocked Slots</span>
                 </div>
-              )}
-            </div>
-            </div>
-
-            {/* Blocked Slots Section */}
-            <div className="bg-stone-50 rounded-xl p-4 border border-gray-100">
-              <div className="flex items-center gap-2 mb-3">
-                <Ban size={14} className="text-red-500" />
-                <span className="text-xs font-bold text-gray-500 uppercase tracking-widest">
-                  {date ? `Availability on ${formattedDate}` : 'Select a date'}
-                </span>
-              </div>
-              {daySlots.length > 0 ? (
                 <div className="space-y-2">
                   {daySlots.map((slot, i) => (
                     <div key={i} className={`flex items-center justify-between px-3 py-2 rounded-lg text-xs font-bold ${
@@ -313,68 +350,119 @@ export default function BookMeeting({ isOpen, onClose, preSelectedDate, preSelec
                         : 'bg-amber-100 text-amber-700 border border-amber-200'
                     }`}>
                       <div className="flex items-center gap-2">
-                        {slot.type === 'unavailable' ? <Ban size={12} /> : <CalendarCheck size={12} />}
+                        {slot.type === 'unavailable' ? <Ban size={12} /> : <CalendarIcon size={12} />}
                         <span>{slot.title}</span>
                       </div>
-                      <span className="opacity-75">{slot.startTime} - {slot.endTime}</span>
+                      <span className="opacity-75">{hourToTime(slot.startHour)} - {hourToTime(slot.endHour)}</span>
                     </div>
                   ))}
                 </div>
-              ) : (
-                <div className="flex items-center gap-2 text-green-600 bg-green-50 px-3 py-2 rounded-lg text-xs font-bold border border-green-200">
-                  <CheckCircle size={14} />
-                  No blocked slots on this date
-                </div>
-              )}
-            </div>
-
-            <button
-              type="button"
-              onClick={handleGetAiSuggestion}
-              disabled={aiLoading}
-              className="w-full flex items-center justify-center gap-2 py-3 bg-purple-50 text-purple-700 rounded-xl font-bold hover:bg-purple-100 transition-colors text-sm border border-purple-200"
-            >
-              {aiLoading ? (
-                <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-purple-600"></div>
-                  Finding best slot...
-                </>
-              ) : (
-                <>
-                  <Sparkles size={16} />
-                  AI Suggest Best Time
-                </>
-              )}
-            </button>
-
-            {aiSuggestion && (
-              <div className="bg-purple-50 border border-purple-200 rounded-xl p-4 text-sm">
-                <div className="font-bold text-purple-700 mb-1">AI Suggestion:</div>
-                <div className="text-purple-600">{aiSuggestion.reason}</div>
               </div>
             )}
 
-            <div className="space-y-1">
-              <label className="text-xs font-bold text-gray-400 uppercase tracking-widest flex items-center gap-1">
-                <MessageSquare size={12} />
-                {t('booking.reason')}
-              </label>
-              <textarea required rows={3} className="w-full px-4 py-3 bg-stone-50 border-none rounded-xl focus:ring-2 focus:ring-[#8B1E1E]/20 outline-none resize-none" value={reason} onChange={e => setReason(e.target.value)} placeholder={t('booking.reasonPlaceholder')} />
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 mb-6">
+              {Array.from({ length: BUSINESS_END - BUSINESS_START }).map((_, i) => {
+                const hour = BUSINESS_START + i;
+                const status = slotStatus(selectedDay, hour);
+                const isSel = selectedSlot === hour;
+                return (
+                  <button
+                    key={hour}
+                    onClick={() => handleSlotClick(hour)}
+                    className={`relative p-3 rounded-xl border text-sm font-bold transition-all ${
+                      status === 'booked'
+                        ? 'bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed'
+                        : status === 'infeasible'
+                        ? 'bg-red-50 border-red-200 text-red-300 cursor-not-allowed'
+                        : isSel
+                        ? 'bg-[#8b1e1e] border-[#8b1e1e] text-white shadow-md scale-105'
+                        : 'bg-green-50 border-green-200 text-green-700 hover:bg-green-100 hover:scale-102 cursor-pointer'
+                    }`}
+                  >
+                    {hourToLabel(hour, locale as 'en' | 'ar')}
+                    {status === 'booked' && <div className="text-[9px] mt-1">Booked</div>}
+                    {status === 'infeasible' && <div className="text-[9px] mt-1">—</div>}
+                    {status === 'available' && <div className="text-[9px] mt-1 text-green-500">{t('booking.slotAvailable')}</div>}
+                  </button>
+                );
+              })}
             </div>
 
-            <button disabled={loading || isBusy} type="submit" className={`w-full py-4 rounded-2xl font-bold shadow-xl transition-all flex items-center justify-center gap-2 ${isBusy ? 'bg-gray-300 text-gray-500 cursor-not-allowed' : 'bg-[#8B1E1E] text-white shadow-[#8B1E1E]/10 hover:scale-[1.02] active:scale-98'}`}>
-              {loading ? (
-                <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-white"></div>
-              ) : (
-                <>
-                  <Send size={16} />
-                  {t('booking.submit')}
-                </>
-              )}
-            </button>
-          </form>
+            {selectedSlot !== null && !success && (
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-stone-50 rounded-2xl p-5 border border-gray-100">
+                <h4 className="font-bold text-sm text-gray-500 mb-3 uppercase tracking-widest">
+                  {t('booking.bookFor')} {hourToLabel(selectedSlot, locale as 'en' | 'ar')}
+                </h4>
+                <form onSubmit={handleSubmit} className="space-y-3">
+                  <div>
+                    <label className="text-xs font-bold text-gray-400 uppercase tracking-widest flex items-center gap-1 mb-1"><User size={12} /> {t('booking.name')}</label>
+                    <input required type="text" className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#8B1E1E]/20 outline-none text-sm" value={name} onChange={e => setName(e.target.value)} placeholder={t('booking.namePlaceholder')} />
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold text-gray-400 uppercase tracking-widest flex items-center gap-1 mb-1"><Mail size={12} /> {t('booking.email')}</label>
+                    <input required type="email" className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#8B1E1E]/20 outline-none text-sm" value={email} onChange={e => setEmail(e.target.value)} placeholder={t('booking.emailPlaceholder')} />
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold text-gray-400 uppercase tracking-widest flex items-center gap-1 mb-1"><MessageSquare size={12} /> {t('booking.reason')}</label>
+                    <textarea required rows={2} className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#8B1E1E]/20 outline-none text-sm resize-none" value={reason} onChange={e => setReason(e.target.value)} placeholder={t('booking.reasonPlaceholder')} />
+                  </div>
+                  <button disabled={loading} type="submit" className="w-full py-3 bg-[#8B1E1E] text-white rounded-xl font-bold shadow hover:bg-[#641414] transition-all flex items-center justify-center gap-2 text-sm">
+                    {loading ? <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white"></div> : <><CheckCircle size={14} /> {t('booking.submit')}</>}
+                  </button>
+                </form>
+              </motion.div>
+            )}
+
+            {success && (
+              <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="text-center py-8">
+                <div className="w-16 h-16 bg-green-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <CheckCircle size={32} className="text-green-600" />
+                </div>
+                <h4 className="text-xl font-bold text-[#8b1e1e] mb-2">{t('booking.successTitle')}</h4>
+                <p className="text-gray-500 text-sm">{t('booking.successDesc')}</p>
+              </motion.div>
+            )}
+          </motion.div>
         )}
-      </motion.div>
+      </AnimatePresence>
+
+      {selectedDay && isPastDay && (
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-red-50 rounded-2xl p-5 border border-red-100 text-center">
+          <AlertCircle size={24} className="text-red-500 mx-auto mb-2" />
+          <p className="text-red-600 font-bold">{t('booking.pastDay')}</p>
+        </motion.div>
+      )}
+
+      <AIBookingAssistant isOpen={showAi} onClose={() => setShowAi(false)} />
     </div>
   );
+
+  if (isOpen) {
+    return (
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/50 z-50 flex items-start justify-center p-4 overflow-y-auto"
+          >
+            <motion.div
+              initial={{ scale: 0.95, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.95, y: 20 }}
+              className="relative w-full max-w-5xl bg-gray-50 rounded-3xl my-8"
+            >
+              <button onClick={onClose} className="absolute top-4 right-4 z-10 p-2 bg-white rounded-full shadow-lg hover:bg-gray-100 transition-colors">
+                <X size={20} />
+              </button>
+              {content}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    );
+  }
+
+  return content;
 }
