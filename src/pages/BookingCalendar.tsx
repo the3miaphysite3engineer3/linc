@@ -64,6 +64,7 @@ export default function BookingCalendar() {
     onValue(meetingsRef, (snapshot) => {
       const data = snapshot.val();
       const blocks: BusyBlock[] = [];
+
       if (data) {
         Object.values(data).forEach((val: any) => {
           if (val.date && val.startTime && val.endTime) {
@@ -81,11 +82,13 @@ export default function BookingCalendar() {
       const unavailabilityRef = ref(database, 'unavailability/');
       onValue(unavailabilityRef, (snap) => {
         const uData = snap.val();
+
         if (uData) {
           Object.values(uData).forEach((val: any) => {
             if (val.date) {
               const startTime = val.startTime || '00:00';
               const endTime = val.endTime || '23:59';
+
               blocks.push({
                 date: val.date,
                 startHour: timeToHour(startTime),
@@ -97,24 +100,7 @@ export default function BookingCalendar() {
           });
         }
 
-        const requestsRef = ref(database, 'meetingRequests/');
-        onValue(requestsRef, (reqSnap) => {
-          const reqData = reqSnap.val();
-          if (reqData) {
-            Object.values(reqData).forEach((val: any) => {
-              if (val.date && val.startTime && val.endTime) {
-                blocks.push({
-                  date: val.date,
-                  startHour: timeToHour(val.startTime),
-                  endHour: timeToHour(val.endTime),
-                  title: `Request: ${val.name || 'Unknown'}`,
-                  type: 'meeting',
-                });
-              }
-            });
-          }
-          setBusyBlocks(blocks);
-        });
+        setBusyBlocks(blocks);
       });
     });
   }, []);
