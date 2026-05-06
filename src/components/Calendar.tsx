@@ -36,12 +36,29 @@ interface Availability {
   allDay?: boolean;
 }
 
+interface Unavailability {
+  id: string;
+  date: string;
+  startTime?: string;
+  endTime?: string;
+  reason?: string;
+  allDay?: boolean;
+}
+
 interface AvailabilityForm {
   mode: 'single' | 'multiple';
   date: string;
   startDate: string;
   endDate: string;
   selectedWeekdays: number[];
+  startTime: string;
+  endTime: string;
+  reason: string;
+  allDay: boolean;
+}
+
+interface UnavailabilityForm {
+  date: string;
   startTime: string;
   endTime: string;
   reason: string;
@@ -62,7 +79,10 @@ export default function Calendar() {
   const [emailSent, setEmailSent] = useState(false);
   const [meetingRequests, setMeetingRequests] = useState<MeetingRequest[]>([]);
   const [showRequests, setShowRequests] = useState(false);
+
   const [availability, setAvailability] = useState<Availability[]>([]);
+  const [unavailability, setUnavailability] = useState<Unavailability[]>([]);
+
   const [showAvailabilityModal, setShowAvailabilityModal] = useState(false);
   const [editingAvailability, setEditingAvailability] = useState<Availability | null>(null);
   const [availabilityForm, setAvailabilityForm] = useState<AvailabilityForm>({
@@ -76,6 +96,17 @@ export default function Calendar() {
     reason: '',
     allDay: true,
   });
+
+  const [showUnavailabilityModal, setShowUnavailabilityModal] = useState(false);
+  const [editingUnavailability, setEditingUnavailability] = useState<Unavailability | null>(null);
+  const [unavailabilityForm, setUnavailabilityForm] = useState<UnavailabilityForm>({
+    date: format(new Date(), 'yyyy-MM-dd'),
+    startTime: '09:00',
+    endTime: '20:00',
+    reason: '',
+    allDay: true,
+  });
+
   const [showAiAssistant, setShowAiAssistant] = useState(false);
   const [aiMessages, setAiMessages] = useState<{ role: string; content: string; timestamp: Date }[]>([]);
   const [aiInput, setAiInput] = useState('');
@@ -174,6 +205,28 @@ export default function Calendar() {
     return () => unsubscribe();
   }, []);
 
+  useEffect(() => {
+    const unavailabilityRef = ref(database, 'unavailability/');
+    const unsubscribe = onValue(unavailabilityRef, (snapshot) => {
+      const data = snapshot.val();
+      if (data) {
+        const parsed = Object.entries(data).map(([firebaseId, val]: [string, any]) => ({
+          id: firebaseId,
+          date: val.date,
+          startTime: val.startTime,
+          endTime: val.endTime,
+          reason: val.reason || '',
+          allDay: val.allDay || false,
+        }));
+        parsed.sort((a, b) => a.date.localeCompare(b.date));
+        setUnavailability(parsed);
+      } else {
+        setUnavailability([]);
+      }
+    });
+    return () => unsubscribe();
+  }, []);
+
   const [newMeeting, setNewMeeting] = useState<Partial<Meeting>>({
     title: '',
     description: '',
@@ -182,12 +235,12 @@ export default function Calendar() {
     endTime: '11:00',
     location: '',
     meetLink: '',
-    type: 'service'
+    type: 'service',
   });
 
   const days = eachDayOfInterval({
     start: startOfMonth(currentDate),
-    end: endOfMonth(currentDate)
+    end: endOfMonth(currentDate),
   });
 
   const resetAvailabilityForm = () => {
@@ -198,6 +251,16 @@ export default function Calendar() {
       startDate: today,
       endDate: today,
       selectedWeekdays: [0, 1, 2, 3, 4, 5, 6],
+      startTime: '09:00',
+      endTime: '20:00',
+      reason: '',
+      allDay: true,
+    });
+  };
+
+  const resetUnavailabilityForm = () => {
+    setUnavailabilityForm({
+      date: format(new Date(), 'yyyy-MM-dd'),
       startTime: '09:00',
       endTime: '20:00',
       reason: '',
@@ -292,6 +355,7 @@ export default function Calendar() {
         console.error(`Failed to send email to ${p.email}:`, err);
       }
     }
+
     return true;
   };
 
@@ -299,6 +363,7 @@ export default function Calendar() {
     e.preventDefault();
     setLoading(true);
     setEmailSent(false);
+
     try {
       const meetingData = {
         title: newMeeting.title || '',
@@ -341,7 +406,7 @@ export default function Calendar() {
         endTime: '11:00',
         location: '',
         meetLink: '',
-        type: 'service'
+        type: 'service',
       });
     } catch (err) {
       console.error(err);
@@ -420,6 +485,50 @@ export default function Calendar() {
     }
   };
 
+  const handleCreateUnavailability = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+
+    try {
+      const { push, update } = await import('firebase/database');
+
+      const unavailabilityData = {
+        date: unavailabilityForm.date,
+        startTime: unavailabilityForm.allDay ? '00:00' : unavailabilityForm.startTime,
+        endTime: unavailabilityForm.allDay ? '23:59' : unavailabilityForm.endTime,
+        reason: unavailabilityForm.reason || '',
+        allDay: unavailabilityForm.allDay,
+        updatedAt: Date.now(),
+      };
+
+      if (editingUnavailability) {
+        await update(ref(database, `unavailability/${editingUnavailability.id}`), unavailabilityData);
+      } else {
+        await push(ref(database, 'unavailability/'), unavailabilityData);
+      }
+
+      setShowUnavailabilityModal(false);
+      setEditingUnavailability(null);
+      resetUnavailabilityForm();
+    } catch (err) {
+      console.error(err);
+      alert('Failed to save unavailability.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteUnavailability = async (id: string) => {
+    if (confirm('Remove this unavailability?')) {
+      try {
+        const { remove } = await import('firebase/database');
+        await remove(ref(database, `unavailability/${id}`));
+      } catch (err) {
+        console.error(err);
+      }
+    }
+  };
+
   const handleAiAssistant = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!aiInput.trim()) return;
@@ -435,7 +544,7 @@ export default function Calendar() {
         setAiMessages(prev => [...prev, { role: 'assistant', content: 'AI is not configured. Please add VITE_OPENROUTER_API_KEY to your .env file.', timestamp: new Date() }]);
         return;
       }
-      
+
       const calendarContext = {
         meetings: meetings.map(m => ({
           title: getMeetingDisplayTitle(m),
@@ -445,22 +554,53 @@ export default function Calendar() {
           requesterEmail: getMeetingRequestEmail(m),
           requestReason: getMeetingRequestReason(m),
         })),
-        availability: availability.map(a => ({ date: a.date, startTime: a.startTime, endTime: a.endTime, allDay: a.allDay, reason: a.reason })),
-        pendingRequests: meetingRequests.filter(r => r.status === 'pending').map(r => ({ id: r.id, name: r.name, email: r.email, date: r.date, startTime: r.startTime, endTime: r.endTime, reason: r.reason })),
+        availability: availability.map(a => ({
+          id: a.id,
+          date: a.date,
+          startTime: a.startTime,
+          endTime: a.endTime,
+          allDay: a.allDay,
+          reason: a.reason,
+        })),
+        unavailability: unavailability.map(u => ({
+          id: u.id,
+          date: u.date,
+          startTime: u.startTime,
+          endTime: u.endTime,
+          allDay: u.allDay,
+          reason: u.reason,
+        })),
+        pendingRequests: meetingRequests.filter(r => r.status === 'pending').map(r => ({
+          id: r.id,
+          name: r.name,
+          email: r.email,
+          date: r.date,
+          startTime: r.startTime,
+          endTime: r.endTime,
+          reason: r.reason,
+        })),
       };
 
-      const systemPrompt = `You are an AI assistant for a church pastor to manage their calendar. The scheduling model is unavailable by default. The pastor adds available time blocks.
+      const systemPrompt = `You are an AI assistant for a church pastor to manage their calendar.
+
+The database scheduling model is:
+- availability/ opens bookable time.
+- unavailability/ closes time and overrides availability.
+- meetings/ contains confirmed meetings.
+- meetingRequests/ contains pending requests.
 
 You can help with:
-1. Adding availability (green slots) - say "I'm available on [date]" or "make [date] available from [time] to [time]"
-2. Accepting meeting requests - say "accept request from [name]" or "accept request #[id]"
-3. Rejecting meeting requests - say "reject request from [name]" or "reject request #[id]"
-4. Viewing schedule - say "show my schedule" or "what's my calendar look like"
+1. Adding availability - say "I'm available on [date]" or "make [date] available from [time] to [time]"
+2. Adding unavailability - say "I'm unavailable on [date]" or "block [date] from [time] to [time]"
+3. Accepting meeting requests - say "accept request from [name]" or "accept request #[id]"
+4. Rejecting meeting requests - say "reject request from [name]" or "reject request #[id]"
+5. Viewing schedule - say "show my schedule" or "what's my calendar look like"
 
 Current calendar context:
 ${JSON.stringify(calendarContext, null, 2)}
 
 When the user wants to add availability, respond with: ACTION:ADD_AVAILABILITY|date|startTime|endTime|reason
+When the user wants to add unavailability, respond with: ACTION:ADD_UNAVAILABILITY|date|startTime|endTime|reason
 When the user wants to accept a request, respond with: ACTION:ACCEPT_REQUEST|requestId
 When the user wants to reject a request, respond with: ACTION:REJECT_REQUEST|requestId
 
@@ -485,7 +625,7 @@ Otherwise, provide a helpful response about their calendar.`;
 
       if (aiResponse.startsWith('ACTION:')) {
         const [action, ...params] = aiResponse.split('|');
-        
+
         if (action === 'ACTION:ADD_AVAILABILITY' && params.length >= 3) {
           const [date, startTime, endTime, reason = ''] = params;
           const { push } = await import('firebase/database');
@@ -497,15 +637,27 @@ Otherwise, provide a helpful response about their calendar.`;
             allDay: startTime === '09:00' && endTime === '20:00',
             updatedAt: Date.now(),
           });
-          setAiMessages(prev => [...prev, { role: 'assistant', content: `✅ Added availability for ${date}${reason ? ` (${reason})` : ''}. The slot is now marked in green on your calendar.`, timestamp: new Date() }]);
+          setAiMessages(prev => [...prev, { role: 'assistant', content: `✅ Added availability for ${date}${reason ? ` (${reason})` : ''}.`, timestamp: new Date() }]);
+        } else if (action === 'ACTION:ADD_UNAVAILABILITY' && params.length >= 3) {
+          const [date, startTime, endTime, reason = ''] = params;
+          const { push } = await import('firebase/database');
+          await push(ref(database, 'unavailability/'), {
+            date,
+            startTime,
+            endTime,
+            reason,
+            allDay: startTime === '00:00' && endTime === '23:59',
+            updatedAt: Date.now(),
+          });
+          setAiMessages(prev => [...prev, { role: 'assistant', content: `✅ Added unavailability for ${date}${reason ? ` (${reason})` : ''}.`, timestamp: new Date() }]);
         } else if (action === 'ACTION:ACCEPT_REQUEST' && params[0]) {
           const requestId = params[0];
           await handleRequestStatus(requestId, 'accepted');
-          setAiMessages(prev => [...prev, { role: 'assistant', content: `✅ Meeting request accepted. A meeting has been created and the requester has been notified.`, timestamp: new Date() }]);
+          setAiMessages(prev => [...prev, { role: 'assistant', content: '✅ Meeting request accepted. A meeting has been created and the requester has been notified.', timestamp: new Date() }]);
         } else if (action === 'ACTION:REJECT_REQUEST' && params[0]) {
           const requestId = params[0];
           await handleRequestStatus(requestId, 'rejected');
-          setAiMessages(prev => [...prev, { role: 'assistant', content: `✅ Meeting request rejected. The requester has been notified.`, timestamp: new Date() }]);
+          setAiMessages(prev => [...prev, { role: 'assistant', content: '✅ Meeting request rejected. The requester has been notified.', timestamp: new Date() }]);
         } else {
           setAiMessages(prev => [...prev, { role: 'assistant', content: aiResponse, timestamp: new Date() }]);
         }
@@ -604,12 +756,11 @@ Otherwise, provide a helpful response about their calendar.`;
         icon={<CalendarIcon size={22} />}
       />
 
-      {/* Calendar Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-white p-6 rounded-3xl shadow-sm border border-gray-100 gap-4">
         <div>
           <h2 className="text-2xl font-bold text-[#1A1A1A]">{format(currentDate, 'MMMM yyyy')}</h2>
           <p className="text-xs text-gray-400 uppercase tracking-widest mt-1">
-            Unavailable by default. Add availability for bookable days.
+            Availability opens booking. Unavailability closes booking.
           </p>
         </div>
         <div className="flex items-center gap-4 flex-wrap">
@@ -637,7 +788,7 @@ Otherwise, provide a helpful response about their calendar.`;
               className="flex items-center gap-2 bg-[#8B1E1E] hover:bg-[#641414] text-white px-6 py-3 rounded-xl font-bold shadow transition-colors text-sm"
             >
               <Video size={16} />
-               {t('calendar.connectGoogle')}
+              {t('calendar.connectGoogle')}
             </button>
           )}
           <button
@@ -660,13 +811,24 @@ Otherwise, provide a helpful response about their calendar.`;
           </button>
           <button
             onClick={() => {
+              setShowUnavailabilityModal(true);
+              setEditingUnavailability(null);
+              resetUnavailabilityForm();
+            }}
+            className="flex items-center gap-2 bg-red-50 hover:bg-red-100 text-red-700 px-5 py-3 rounded-xl font-bold transition-colors text-sm border border-red-200"
+          >
+            <XCircle size={16} />
+            <span>Mark Unavailable</span>
+          </button>
+          <button
+            onClick={() => {
               setShowAiAssistant(!showAiAssistant);
               if (!showAiAssistant && aiMessages.length === 0) {
                 const pendingCount = meetingRequests.filter(r => r.status === 'pending').length;
                 setAiMessages([
                   {
                     role: 'assistant',
-                    content: `Hi Pastor! I'm your AI calendar assistant. You have ${pendingCount} pending request${pendingCount !== 1 ? 's' : ''}.\n\nI can help you:\n• Add availability (green slots)\n• Accept/reject meeting requests\n• View your schedule\n\nWhat would you like to do?`,
+                    content: `Hi Pastor! I'm your AI calendar assistant. You have ${pendingCount} pending request${pendingCount !== 1 ? 's' : ''}.\n\nI can help you:\n• Add availability\n• Add unavailability\n• Accept/reject meeting requests\n• View your schedule\n\nWhat would you like to do?`,
                     timestamp: new Date(),
                   },
                 ]);
@@ -680,7 +842,6 @@ Otherwise, provide a helpful response about their calendar.`;
         </div>
       </div>
 
-      {/* Meeting Requests Section */}
       {meetingRequests.filter(r => r.status === 'pending').length > 0 && (
         <section className="bg-white p-6 rounded-3xl shadow-sm border border-amber-200">
           <div className="flex items-center justify-between mb-4">
@@ -730,7 +891,6 @@ Otherwise, provide a helpful response about their calendar.`;
         </section>
       )}
 
-      {/* Calendar Grid */}
       <div className="grid grid-cols-1 md:grid-cols-7 gap-4">
         {[t('calendar.sun'), t('calendar.mon'), t('calendar.tue'), t('calendar.wed'), t('calendar.thu'), t('calendar.fri'), t('calendar.sat')].map(d => (
           <div key={d} className="text-center text-[10px] uppercase tracking-widest text-gray-400 font-bold hidden md:block">{d}</div>
@@ -744,6 +904,7 @@ Otherwise, provide a helpful response about their calendar.`;
               return false;
             }
           });
+
           const dayAvailability = availability.filter(a => {
             if (!a.date) return false;
             try {
@@ -752,28 +913,39 @@ Otherwise, provide a helpful response about their calendar.`;
               return false;
             }
           });
+
+          const dayUnavailability = unavailability.filter(u => {
+            if (!u.date) return false;
+            try {
+              return isSameDay(parseISO(u.date), day);
+            } catch {
+              return false;
+            }
+          });
+
           return (
             <div
               key={day.toISOString()}
               className={`min-h-[140px] bg-white rounded-2xl p-3 border border-gray-100 transition-all hover:border-[#8B1E1E]/20 ${i === 0 ? [
-                  '',
-                  'md:col-start-1',
-                  'md:col-start-2',
-                  'md:col-start-3',
-                  'md:col-start-4',
-                  'md:col-start-5',
-                  'md:col-start-6',
-                  'md:col-start-7'
-                ][day.getDay() + 1] : ''
+                '',
+                'md:col-start-1',
+                'md:col-start-2',
+                'md:col-start-3',
+                'md:col-start-4',
+                'md:col-start-5',
+                'md:col-start-6',
+                'md:col-start-7',
+              ][day.getDay() + 1] : ''
                 }`}
             >
               <div className="text-sm font-bold text-gray-900 mb-2">{format(day, 'd')}</div>
               <div className="space-y-2">
                 {dayAvailability.length === 0 && (
                   <div className="p-2 bg-gray-50 rounded-lg text-[10px] border border-gray-100 text-gray-400 font-bold">
-                    Unavailable by default
+                    No availability opened
                   </div>
                 )}
+
                 {dayAvailability.map(a => (
                   <div
                     key={a.id}
@@ -808,6 +980,38 @@ Otherwise, provide a helpful response about their calendar.`;
                     {a.reason && <div className="text-green-600 text-[9px] mt-0.5 line-clamp-1">{a.reason}</div>}
                   </div>
                 ))}
+
+                {dayUnavailability.map(u => (
+                  <div
+                    key={u.id}
+                    onClick={() => {
+                      setEditingUnavailability(u);
+                      setUnavailabilityForm({
+                        date: u.date,
+                        startTime: u.startTime || '09:00',
+                        endTime: u.endTime || '20:00',
+                        reason: u.reason || '',
+                        allDay: u.allDay || false,
+                      });
+                      setShowUnavailabilityModal(true);
+                    }}
+                    className="p-2 bg-red-50 rounded-lg text-[10px] cursor-pointer group hover:bg-red-100 transition-colors border border-red-200 relative"
+                  >
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteUnavailability(u.id);
+                      }}
+                      className="absolute top-1 right-1 p-0.5 text-red-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      <X size={10} />
+                    </button>
+                    <div className="font-bold text-red-700 line-clamp-1">{u.allDay ? 'Unavailable' : `${u.startTime} - ${u.endTime}`}</div>
+                    {u.reason && <div className="text-red-500 text-[9px] mt-0.5 line-clamp-1">{u.reason}</div>}
+                  </div>
+                ))}
+
                 {dayMeetings.map(m => (
                   <div
                     key={m.id}
@@ -829,12 +1033,11 @@ Otherwise, provide a helpful response about their calendar.`;
         })}
       </div>
 
-      {/* Upcoming Meetings List */}
       <section className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100">
-          <h3 className="text-xl font-bold mb-6 flex items-center gap-2 text-[#8B1E1E]">
-            <Clock size={20} />
-            {t('calendar.upcoming')}
-          </h3>
+        <h3 className="text-xl font-bold mb-6 flex items-center gap-2 text-[#8B1E1E]">
+          <Clock size={20} />
+          {t('calendar.upcoming')}
+        </h3>
         <div className="space-y-4">
           {meetings.filter(m => {
             if (!m.date) return false;
@@ -893,7 +1096,6 @@ Otherwise, provide a helpful response about their calendar.`;
         </div>
       </section>
 
-      {/* Add/Edit Modal */}
       {isAddOpen && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
           <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="bg-white w-full max-w-xl rounded-3xl shadow-2xl overflow-hidden max-h-[90vh] overflow-y-auto">
@@ -913,12 +1115,12 @@ Otherwise, provide a helpful response about their calendar.`;
                 </div>
                 <div className="space-y-1">
                   <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">{t('calendar.typeField')}</label>
-                   <select className="w-full px-4 py-3 bg-stone-50 border-none rounded-xl focus:ring-2 focus:ring-[#8B1E1E]/20 outline-none" value={newMeeting.type} onChange={e => setNewMeeting(p => ({ ...p, type: e.target.value as any }))}>
-                     <option value="service">{t('calendar.service')}</option>
-                     <option value="prayer">{t('calendar.prayer')}</option>
-                     <option value="counseling">{t('calendar.counseling')}</option>
-                     <option value="other">{t('calendar.other')}</option>
-                   </select>
+                  <select className="w-full px-4 py-3 bg-stone-50 border-none rounded-xl focus:ring-2 focus:ring-[#8B1E1E]/20 outline-none" value={newMeeting.type} onChange={e => setNewMeeting(p => ({ ...p, type: e.target.value as any }))}>
+                    <option value="service">{t('calendar.service')}</option>
+                    <option value="prayer">{t('calendar.prayer')}</option>
+                    <option value="counseling">{t('calendar.counseling')}</option>
+                    <option value="other">{t('calendar.other')}</option>
+                  </select>
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
@@ -932,7 +1134,6 @@ Otherwise, provide a helpful response about their calendar.`;
                 </div>
               </div>
 
-              {/* Participants Dropdown */}
               {participants.length > 0 && (
                 <div className="space-y-1">
                   <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">{t('calendar.participants')}</label>
@@ -1004,7 +1205,6 @@ Otherwise, provide a helpful response about their calendar.`;
                 </div>
               )}
 
-              {/* Google Meet */}
               <div className="space-y-1">
                 <div className="flex justify-between items-center">
                   <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">{t('calendar.meetLink')}</label>
@@ -1059,7 +1259,6 @@ Otherwise, provide a helpful response about their calendar.`;
                 </div>
               </div>
 
-              {/* Location */}
               <div className="space-y-1">
                 <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">Location (Optional)</label>
                 <div className="relative">
@@ -1090,14 +1289,13 @@ Otherwise, provide a helpful response about their calendar.`;
         </div>
       )}
 
-      {/* Availability Modal */}
       {showAvailabilityModal && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
           <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="bg-white w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden max-h-[90vh] overflow-y-auto">
             <div className="p-6 border-b flex justify-between items-center bg-stone-50 sticky top-0 z-10">
               <div>
                 <h3 className="text-xl font-bold text-green-700">{editingAvailability ? 'Edit Availability' : 'Mark Available'}</h3>
-                <p className="text-xs text-gray-400 mt-1">All dates are unavailable unless marked available here.</p>
+                <p className="text-xs text-gray-400 mt-1">This writes to availability/ in the database.</p>
               </div>
               <button onClick={() => { setShowAvailabilityModal(false); setEditingAvailability(null); resetAvailabilityForm(); }} className="p-2 hover:bg-gray-200 rounded-full transition-colors"><X size={20} /></button>
             </div>
@@ -1203,12 +1401,12 @@ Otherwise, provide a helpful response about their calendar.`;
               <div className="flex items-center gap-3">
                 <input
                   type="checkbox"
-                  id="allDay"
+                  id="allDayAvailability"
                   checked={availabilityForm.allDay}
                   onChange={e => setAvailabilityForm(p => ({ ...p, allDay: e.target.checked }))}
                   className="w-4 h-4 rounded border-gray-300 text-green-600 focus:ring-green-500"
                 />
-                <label htmlFor="allDay" className="text-sm font-bold text-gray-700">All Bookable Hours</label>
+                <label htmlFor="allDayAvailability" className="text-sm font-bold text-gray-700">All Bookable Hours</label>
               </div>
 
               {!availabilityForm.allDay && (
@@ -1262,7 +1460,90 @@ Otherwise, provide a helpful response about their calendar.`;
         </div>
       )}
 
-      {/* AI Assistant Modal */}
+      {showUnavailabilityModal && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
+          <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="bg-white w-full max-w-md rounded-3xl shadow-2xl overflow-hidden max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b flex justify-between items-center bg-stone-50 sticky top-0 z-10">
+              <div>
+                <h3 className="text-xl font-bold text-red-700">{editingUnavailability ? 'Edit Unavailability' : 'Mark Unavailable'}</h3>
+                <p className="text-xs text-gray-400 mt-1">This writes to unavailability/ in the database.</p>
+              </div>
+              <button onClick={() => { setShowUnavailabilityModal(false); setEditingUnavailability(null); resetUnavailabilityForm(); }} className="p-2 hover:bg-gray-200 rounded-full transition-colors"><X size={20} /></button>
+            </div>
+            <form onSubmit={handleCreateUnavailability} className="p-6 space-y-4">
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">Date</label>
+                <input
+                  required
+                  type="date"
+                  className="w-full px-4 py-3 bg-stone-50 border-none rounded-xl focus:ring-2 focus:ring-red-300 outline-none"
+                  value={unavailabilityForm.date}
+                  onChange={e => setUnavailabilityForm(p => ({ ...p, date: e.target.value }))}
+                />
+              </div>
+
+              <div className="flex items-center gap-3">
+                <input
+                  type="checkbox"
+                  id="allDayUnavailability"
+                  checked={unavailabilityForm.allDay}
+                  onChange={e => setUnavailabilityForm(p => ({ ...p, allDay: e.target.checked }))}
+                  className="w-4 h-4 rounded border-gray-300 text-red-600 focus:ring-red-500"
+                />
+                <label htmlFor="allDayUnavailability" className="text-sm font-bold text-gray-700">All Day</label>
+              </div>
+
+              {!unavailabilityForm.allDay && (
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">Start Time</label>
+                    <input
+                      required
+                      type="time"
+                      className="w-full px-4 py-3 bg-stone-50 border-none rounded-xl focus:ring-2 focus:ring-red-300 outline-none"
+                      value={unavailabilityForm.startTime}
+                      onChange={e => setUnavailabilityForm(p => ({ ...p, startTime: e.target.value }))}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">End Time</label>
+                    <input
+                      required
+                      type="time"
+                      className="w-full px-4 py-3 bg-stone-50 border-none rounded-xl focus:ring-2 focus:ring-red-300 outline-none"
+                      value={unavailabilityForm.endTime}
+                      onChange={e => setUnavailabilityForm(p => ({ ...p, endTime: e.target.value }))}
+                    />
+                  </div>
+                </div>
+              )}
+
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">Reason (Optional)</label>
+                <input
+                  type="text"
+                  placeholder="e.g., Vacation, Conference"
+                  className="w-full px-4 py-3 bg-stone-50 border-none rounded-xl focus:ring-2 focus:ring-red-300 outline-none"
+                  value={unavailabilityForm.reason}
+                  onChange={e => setUnavailabilityForm(p => ({ ...p, reason: e.target.value }))}
+                />
+              </div>
+
+              <button disabled={loading} type="submit" className="w-full py-4 bg-red-600 text-white rounded-2xl font-bold shadow-xl shadow-red-600/10 hover:scale-[1.02] active:scale-98 transition-all flex items-center justify-center gap-2">
+                {loading ? (
+                  <>Saving...</>
+                ) : (
+                  <>
+                    <Send size={16} />
+                    {editingUnavailability ? 'Update Unavailability' : 'Mark Unavailable'}
+                  </>
+                )}
+              </button>
+            </form>
+          </motion.div>
+        </div>
+      )}
+
       {showAiAssistant && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[70] flex items-center justify-center p-4">
           <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="bg-white w-full max-w-2xl rounded-3xl shadow-2xl overflow-hidden max-h-[80vh] flex flex-col">
@@ -1302,7 +1583,7 @@ Otherwise, provide a helpful response about their calendar.`;
                   </div>
                 </div>
               ))}
-              
+
               {aiLoading && (
                 <div className="flex justify-start">
                   <div className="bg-white rounded-2xl px-4 py-3 shadow-sm border border-gray-100 rounded-bl-sm">
@@ -1321,7 +1602,7 @@ Otherwise, provide a helpful response about their calendar.`;
                   type="text"
                   value={aiInput}
                   onChange={e => setAiInput(e.target.value)}
-                  placeholder="e.g., 'I'm available next Friday' or 'accept request from John'"
+                  placeholder="e.g., 'I'm available next Friday' or 'block Friday afternoon'"
                   className="flex-1 px-4 py-3 bg-gray-100 border-none rounded-xl focus:ring-2 focus:ring-purple-500 outline-none text-sm"
                   disabled={aiLoading}
                 />
