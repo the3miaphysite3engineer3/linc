@@ -10,30 +10,21 @@ import { sendEmailViaEmailJS } from '../services/gmail';
 
 const BUSINESS_START = 9;
 const BUSINESS_END = 20;
-const SLOT_DURATION = 0.5;
+const SLOT_DURATION = 1;
 
 function hourToLabel(h: number, locale: 'en' | 'ar'): string {
   const isAr = locale === 'ar';
-
-  const hour = Math.floor(h);
-  const minutes = Math.round((h - hour) * 60);
-
-  const period = hour >= 12 ? (isAr ? 'م' : 'PM') : (isAr ? 'ص' : 'AM');
-  const hour12 = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
-
-  return `${hour12}:${String(minutes).padStart(2, '0')} ${period}`;
+  const period = h >= 12 ? (isAr ? 'م' : 'PM') : (isAr ? 'ص' : 'AM');
+  const hour12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
+  return `${hour12}:00 ${period}`;
 }
 
 function hourToTime(h: number): string {
-  const hour = Math.floor(h);
-  const minutes = Math.round((h - hour) * 60);
-
-  return `${String(hour).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+  return `${String(h).padStart(2, '0')}:00`;
 }
 
 function timeToHour(t: string): number {
-  const [hours, minutes] = t.split(':').map(Number);
-  return hours + minutes / 60;
+  return parseInt(t.split(':')[0], 10);
 }
 
 interface BusyBlock {
@@ -67,11 +58,9 @@ export default function BookMeeting({ isOpen, onClose, preSelectedDate }: BookMe
 
   useEffect(() => {
     const meetingsRef = ref(database, 'meetings/');
-
     onValue(meetingsRef, (snapshot) => {
       const data = snapshot.val();
       const blocks: BusyBlock[] = [];
-
       if (data) {
         Object.values(data).forEach((val: any) => {
           if (val.date && val.startTime && val.endTime) {
@@ -79,7 +68,7 @@ export default function BookMeeting({ isOpen, onClose, preSelectedDate }: BookMe
               date: val.date,
               startHour: timeToHour(val.startTime),
               endHour: timeToHour(val.endTime),
-              title: 'Booked',
+              title: val.title || 'Meeting',
               type: 'meeting',
             });
           }
@@ -87,21 +76,18 @@ export default function BookMeeting({ isOpen, onClose, preSelectedDate }: BookMe
       }
 
       const unavailabilityRef = ref(database, 'unavailability/');
-
       onValue(unavailabilityRef, (snap) => {
         const uData = snap.val();
-
         if (uData) {
           Object.values(uData).forEach((val: any) => {
             if (val.date) {
               const startTime = val.startTime || '00:00';
               const endTime = val.endTime || '23:59';
-
               blocks.push({
                 date: val.date,
                 startHour: timeToHour(startTime),
                 endHour: timeToHour(endTime),
-                title: 'Unavailable',
+                title: val.reason || 'Unavailable',
                 type: 'unavailable',
               });
             }
@@ -109,10 +95,8 @@ export default function BookMeeting({ isOpen, onClose, preSelectedDate }: BookMe
         }
 
         const requestsRef = ref(database, 'meetingRequests/');
-
         onValue(requestsRef, (reqSnap) => {
           const reqData = reqSnap.val();
-
           if (reqData) {
             Object.values(reqData).forEach((val: any) => {
               if (val.date && val.startTime && val.endTime) {
@@ -120,13 +104,12 @@ export default function BookMeeting({ isOpen, onClose, preSelectedDate }: BookMe
                   date: val.date,
                   startHour: timeToHour(val.startTime),
                   endHour: timeToHour(val.endTime),
-                  title: 'Pending Meeting Request',
+                  title: `Request: ${val.name || 'Unknown'}`,
                   type: 'meeting',
                 });
               }
             });
           }
-
           setBusyBlocks(blocks);
         });
       });
@@ -137,18 +120,14 @@ export default function BookMeeting({ isOpen, onClose, preSelectedDate }: BookMe
     const adminsRef = ref(database, 'admins/');
     const unsubscribe = onValue(adminsRef, (snapshot) => {
       const data = snapshot.val();
-
       if (data) {
         const emails: string[] = [];
-
         Object.keys(data).forEach(k => {
           emails.push(k.replace(/,/g, '.').toLowerCase().trim());
         });
-
         setPastors(emails);
       }
     });
-
     return () => unsubscribe();
   }, []);
 
@@ -178,11 +157,6 @@ export default function BookMeeting({ isOpen, onClose, preSelectedDate }: BookMe
     return busyBlocks.filter(b => b.date === dayStr);
   };
 
-  const isDayUnavailable = (day: Date): boolean => {
-    const dayStr = format(day, 'yyyy-MM-dd');
-    return busyBlocks.some(b => b.date === dayStr && b.type === 'unavailable');
-  };
-
   const isSlotBooked = (day: Date, hour: number): boolean => {
     const dayStr = format(day, 'yyyy-MM-dd');
     return busyBlocks.some(b => b.date === dayStr && hour >= b.startHour && hour < b.endHour);
@@ -190,27 +164,18 @@ export default function BookMeeting({ isOpen, onClose, preSelectedDate }: BookMe
 
   const isSlotInfeasible = (day: Date, hour: number): boolean => {
     if (hour < BUSINESS_START || hour >= BUSINESS_END) return true;
-    if (isDayUnavailable(day)) return true;
-
     const dayStr = format(day, 'yyyy-MM-dd');
     const todayStr = format(new Date(), 'yyyy-MM-dd');
-
     if (dayStr === todayStr) {
       const now = new Date();
-      const currentHour = now.getHours() + now.getMinutes() / 60;
-
-      if (hour <= currentHour) return true;
+      if (hour <= now.getHours()) return true;
     }
-
     if (isBefore(startOfDay(day), startOfDay(new Date()))) return true;
-
     return false;
   };
 
   const handleDayClick = (day: Date) => {
     if (isBefore(startOfDay(day), startOfDay(new Date()))) return;
-    if (isDayUnavailable(day)) return;
-
     setSelectedDay(day);
     setSelectedSlot(null);
     setSuccess(false);
@@ -218,30 +183,16 @@ export default function BookMeeting({ isOpen, onClose, preSelectedDate }: BookMe
 
   const handleSlotClick = (hour: number) => {
     if (!selectedDay || isSlotBooked(selectedDay, hour) || isSlotInfeasible(selectedDay, hour)) return;
-
     setSelectedSlot(hour);
     setSuccess(false);
   };
 
-  useEffect(() => {
-    if (selectedDay && isDayUnavailable(selectedDay)) {
-      setSelectedDay(null);
-      setSelectedSlot(null);
-      setSuccess(false);
-    }
-  }, [busyBlocks, selectedDay]);
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
     if (!selectedDay || selectedSlot === null) return;
-    if (isDayUnavailable(selectedDay)) return;
-
     setLoading(true);
-
     try {
       const dateStr = format(selectedDay, 'yyyy-MM-dd');
-
       const request = {
         name,
         email,
@@ -252,7 +203,6 @@ export default function BookMeeting({ isOpen, onClose, preSelectedDate }: BookMe
         status: 'pending',
         createdAt: Date.now(),
       };
-
       await push(ref(database, 'meetingRequests/'), request);
 
       for (const pastorEmail of pastors) {
@@ -285,7 +235,6 @@ export default function BookMeeting({ isOpen, onClose, preSelectedDate }: BookMe
   };
 
   const daySlots = selectedDay ? busyBlocks.filter(b => b.date === format(selectedDay, 'yyyy-MM-dd')) : [];
-  const numberOfSlots = Math.floor((BUSINESS_END - BUSINESS_START) / SLOT_DURATION);
 
   const content = (
     <div className="space-y-8 max-w-5xl mx-auto px-4 py-8" dir={dir} style={{ fontFamily: 'Arial, sans-serif' }}>
@@ -307,38 +256,19 @@ export default function BookMeeting({ isOpen, onClose, preSelectedDate }: BookMe
       </div>
 
       <div className="flex flex-wrap justify-center gap-4 text-xs font-bold">
-        <div className="flex items-center gap-2">
-          <div className="w-4 h-4 rounded bg-red-50 border border-red-200"></div>
-          {t('booking.legendInfeasible')}
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="w-4 h-4 rounded bg-green-50 border border-green-200"></div>
-          {t('booking.legendAvailable')}
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="w-4 h-4 rounded bg-gray-200 border border-gray-300"></div>
-          {t('booking.legendBooked')}
-        </div>
+        <div className="flex items-center gap-2"><div className="w-4 h-4 rounded bg-red-50 border border-red-200"></div>{t('booking.legendInfeasible')}</div>
+        <div className="flex items-center gap-2"><div className="w-4 h-4 rounded bg-green-50 border border-green-200"></div>{t('booking.legendAvailable')}</div>
+        <div className="flex items-center gap-2"><div className="w-4 h-4 rounded bg-gray-200 border border-gray-300"></div>{t('booking.legendBooked')}</div>
       </div>
 
       <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-6">
         <div className="flex items-center justify-between mb-6">
-          <button
-            onClick={() => setCurrentDate(subMonths(currentDate, 1))}
-            className="p-2 hover:bg-gray-100 rounded-full transition-colors"
-          >
-            <ChevronLeft size={20} />
-          </button>
+          <button onClick={() => setCurrentDate(subMonths(currentDate, 1))} className="p-2 hover:bg-gray-100 rounded-full transition-colors"><ChevronLeft size={20} /></button>
           <div className="text-center">
             <h2 className="text-xl font-bold text-[#1A1A1A]">{format(currentDate, 'MMMM yyyy')}</h2>
             <p className="text-xs text-gray-400 uppercase tracking-widest mt-1">{t('calendar.schedule')}</p>
           </div>
-          <button
-            onClick={() => setCurrentDate(addMonths(currentDate, 1))}
-            className="p-2 hover:bg-gray-100 rounded-full transition-colors"
-          >
-            <ChevronRight size={20} />
-          </button>
+          <button onClick={() => setCurrentDate(addMonths(currentDate, 1))} className="p-2 hover:bg-gray-100 rounded-full transition-colors"><ChevronRight size={20} /></button>
         </div>
 
         <div className="grid grid-cols-7 gap-2 mb-2">
@@ -351,20 +281,11 @@ export default function BookMeeting({ isOpen, onClose, preSelectedDate }: BookMe
           {Array.from({ length: startOfMonth(currentDate).getDay() }).map((_, i) => (
             <div key={`empty-${i}`} />
           ))}
-
           {days.map(day => {
             const dayBlocks = getDayBlocks(day);
             const isPast = isBefore(startOfDay(day), startOfDay(new Date()));
-            const isUnavailable = isDayUnavailable(day);
-
-            if (isUnavailable) {
-              return <div key={day.toISOString()} />;
-            }
-
             const isSelected = selectedDay && isSameDay(day, selectedDay);
             const today = isToday(day);
-            const visibleDayBlocks = dayBlocks.filter(b => b.type !== 'unavailable');
-
             return (
               <button
                 key={day.toISOString()}
@@ -381,25 +302,20 @@ export default function BookMeeting({ isOpen, onClose, preSelectedDate }: BookMe
                 }`}
               >
                 <div className={`text-sm font-bold ${isSelected ? 'text-white' : ''}`}>{format(day, 'd')}</div>
-
-                {isPast && <div className="text-[8px] text-gray-300 mt-1">Past</div>}
-
-                {!isPast && visibleDayBlocks.length > 0 && (
+                {isPast && <div className="text-[8px] text-gray-300 mt-1">✕</div>}
+                {!isPast && dayBlocks.length > 0 && (
                   <div className="flex flex-col gap-0.5 mt-1 flex-1 justify-end">
-                    {visibleDayBlocks.slice(0, 2).map((b, i) => (
-                      <div
-                        key={i}
-                        className={`text-[8px] px-1 py-0.5 rounded truncate ${
-                          isSelected ? 'bg-white/20 text-white/80' : 'bg-amber-100 text-amber-600'
-                        }`}
-                      >
+                    {dayBlocks.slice(0, 2).map((b, i) => (
+                      <div key={i} className={`text-[8px] px-1 py-0.5 rounded truncate ${
+                        b.type === 'unavailable'
+                          ? (isSelected ? 'bg-white/20 text-white/80' : 'bg-red-100 text-red-600')
+                          : (isSelected ? 'bg-white/20 text-white/80' : 'bg-amber-100 text-amber-600')
+                      }`}>
                         {b.title}
                       </div>
                     ))}
-                    {visibleDayBlocks.length > 2 && (
-                      <div className={`text-[8px] ${isSelected ? 'text-white/60' : 'text-gray-400'}`}>
-                        +{visibleDayBlocks.length - 2} more
-                      </div>
+                    {dayBlocks.length > 2 && (
+                      <div className={`text-[8px] ${isSelected ? 'text-white/60' : 'text-gray-400'}`}>+{dayBlocks.length - 2} more</div>
                     )}
                   </div>
                 )}
@@ -410,37 +326,31 @@ export default function BookMeeting({ isOpen, onClose, preSelectedDate }: BookMe
       </div>
 
       <AnimatePresence>
-        {selectedDay && !isPastDay && !isDayUnavailable(selectedDay) && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 20 }}
-            className="bg-white rounded-3xl shadow-sm border border-gray-100 p-6"
-          >
+        {selectedDay && !isPastDay && (
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 20 }} className="bg-white rounded-3xl shadow-sm border border-gray-100 p-6">
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-lg font-bold flex items-center gap-2 text-[#8b1e1e]">
                 <Clock size={18} />
                 {format(selectedDay, 'EEEE, MMMM d, yyyy')}
               </h3>
-              <button onClick={() => setSelectedDay(null)} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
-                <X size={18} />
-              </button>
+              <button onClick={() => setSelectedDay(null)} className="p-2 hover:bg-gray-100 rounded-full transition-colors"><X size={18} /></button>
             </div>
 
-            {daySlots.filter(slot => slot.type !== 'unavailable').length > 0 && (
+            {daySlots.length > 0 && (
               <div className="mb-6 bg-stone-50 rounded-xl p-4 border border-gray-100">
                 <div className="flex items-center gap-2 mb-3">
                   <Ban size={14} className="text-red-500" />
                   <span className="text-xs font-bold text-gray-500 uppercase tracking-widest">Blocked Slots</span>
                 </div>
                 <div className="space-y-2">
-                  {daySlots.filter(slot => slot.type !== 'unavailable').map((slot, i) => (
-                    <div
-                      key={i}
-                      className="flex items-center justify-between px-3 py-2 rounded-lg text-xs font-bold bg-amber-100 text-amber-700 border border-amber-200"
-                    >
+                  {daySlots.map((slot, i) => (
+                    <div key={i} className={`flex items-center justify-between px-3 py-2 rounded-lg text-xs font-bold ${
+                      slot.type === 'unavailable'
+                        ? 'bg-red-100 text-red-700 border border-red-200'
+                        : 'bg-amber-100 text-amber-700 border border-amber-200'
+                    }`}>
                       <div className="flex items-center gap-2">
-                        <CalendarIcon size={12} />
+                        {slot.type === 'unavailable' ? <Ban size={12} /> : <CalendarIcon size={12} />}
                         <span>{slot.title}</span>
                       </div>
                       <span className="opacity-75">{hourToTime(slot.startHour)} - {hourToTime(slot.endHour)}</span>
@@ -451,11 +361,10 @@ export default function BookMeeting({ isOpen, onClose, preSelectedDate }: BookMe
             )}
 
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 mb-6">
-              {Array.from({ length: numberOfSlots }).map((_, i) => {
-                const hour = BUSINESS_START + i * SLOT_DURATION;
+              {Array.from({ length: BUSINESS_END - BUSINESS_START }).map((_, i) => {
+                const hour = BUSINESS_START + i;
                 const status = slotStatus(selectedDay, hour);
                 const isSel = selectedSlot === hour;
-
                 return (
                   <button
                     key={hour}
@@ -486,56 +395,19 @@ export default function BookMeeting({ isOpen, onClose, preSelectedDate }: BookMe
                 </h4>
                 <form onSubmit={handleSubmit} className="space-y-3">
                   <div>
-                    <label className="text-xs font-bold text-gray-400 uppercase tracking-widest flex items-center gap-1 mb-1">
-                      <User size={12} /> {t('booking.name')}
-                    </label>
-                    <input
-                      required
-                      type="text"
-                      className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#8B1E1E]/20 outline-none text-sm"
-                      value={name}
-                      onChange={e => setName(e.target.value)}
-                      placeholder={t('booking.namePlaceholder')}
-                    />
+                    <label className="text-xs font-bold text-gray-400 uppercase tracking-widest flex items-center gap-1 mb-1"><User size={12} /> {t('booking.name')}</label>
+                    <input required type="text" className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#8B1E1E]/20 outline-none text-sm" value={name} onChange={e => setName(e.target.value)} placeholder={t('booking.namePlaceholder')} />
                   </div>
                   <div>
-                    <label className="text-xs font-bold text-gray-400 uppercase tracking-widest flex items-center gap-1 mb-1">
-                      <Mail size={12} /> {t('booking.email')}
-                    </label>
-                    <input
-                      required
-                      type="email"
-                      className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#8B1E1E]/20 outline-none text-sm"
-                      value={email}
-                      onChange={e => setEmail(e.target.value)}
-                      placeholder={t('booking.emailPlaceholder')}
-                    />
+                    <label className="text-xs font-bold text-gray-400 uppercase tracking-widest flex items-center gap-1 mb-1"><Mail size={12} /> {t('booking.email')}</label>
+                    <input required type="email" className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#8B1E1E]/20 outline-none text-sm" value={email} onChange={e => setEmail(e.target.value)} placeholder={t('booking.emailPlaceholder')} />
                   </div>
                   <div>
-                    <label className="text-xs font-bold text-gray-400 uppercase tracking-widest flex items-center gap-1 mb-1">
-                      <MessageSquare size={12} /> {t('booking.reason')}
-                    </label>
-                    <textarea
-                      required
-                      rows={2}
-                      className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#8B1E1E]/20 outline-none text-sm resize-none"
-                      value={reason}
-                      onChange={e => setReason(e.target.value)}
-                      placeholder={t('booking.reasonPlaceholder')}
-                    />
+                    <label className="text-xs font-bold text-gray-400 uppercase tracking-widest flex items-center gap-1 mb-1"><MessageSquare size={12} /> {t('booking.reason')}</label>
+                    <textarea required rows={2} className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#8B1E1E]/20 outline-none text-sm resize-none" value={reason} onChange={e => setReason(e.target.value)} placeholder={t('booking.reasonPlaceholder')} />
                   </div>
-                  <button
-                    disabled={loading}
-                    type="submit"
-                    className="w-full py-3 bg-[#8B1E1E] text-white rounded-xl font-bold shadow hover:bg-[#641414] transition-all flex items-center justify-center gap-2 text-sm"
-                  >
-                    {loading ? (
-                      <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white"></div>
-                    ) : (
-                      <>
-                        <CheckCircle size={14} /> {t('booking.submit')}
-                      </>
-                    )}
+                  <button disabled={loading} type="submit" className="w-full py-3 bg-[#8B1E1E] text-white rounded-xl font-bold shadow hover:bg-[#641414] transition-all flex items-center justify-center gap-2 text-sm">
+                    {loading ? <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white"></div> : <><CheckCircle size={14} /> {t('booking.submit')}</>}
                   </button>
                 </form>
               </motion.div>
@@ -581,10 +453,7 @@ export default function BookMeeting({ isOpen, onClose, preSelectedDate }: BookMe
               exit={{ scale: 0.95, y: 20 }}
               className="relative w-full max-w-5xl bg-gray-50 rounded-3xl my-8"
             >
-              <button
-                onClick={onClose}
-                className="absolute top-4 right-4 z-10 p-2 bg-white rounded-full shadow-lg hover:bg-gray-100 transition-colors"
-              >
+              <button onClick={onClose} className="absolute top-4 right-4 z-10 p-2 bg-white rounded-full shadow-lg hover:bg-gray-100 transition-colors">
                 <X size={20} />
               </button>
               {content}
