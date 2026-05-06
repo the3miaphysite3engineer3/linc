@@ -174,6 +174,24 @@ export default function Calendar() {
     end: endOfMonth(currentDate)
   });
 
+  const getMeetingDisplayTitle = (meeting: Meeting): string => {
+    const requestName = (meeting as any).requestName;
+
+    if (requestName) {
+      return `Meeting with ${requestName}`;
+    }
+
+    return meeting.title || 'Meeting';
+  };
+
+  const getMeetingRequestEmail = (meeting: Meeting): string => {
+    return (meeting as any).requestEmail || '';
+  };
+
+  const getMeetingRequestReason = (meeting: Meeting): string => {
+    return (meeting as any).requestReason || '';
+  };
+
   const toggleParticipant = (id: string) => {
     setSelectedParticipants(prev =>
       prev.includes(id) ? prev.filter(p => p !== id) : [...prev, id]
@@ -347,7 +365,14 @@ export default function Calendar() {
       }
       
       const calendarContext = {
-        meetings: meetings.map(m => ({ title: m.title, date: m.date, startTime: m.startTime, endTime: m.endTime })),
+        meetings: meetings.map(m => ({
+          title: getMeetingDisplayTitle(m),
+          date: m.date,
+          startTime: m.startTime,
+          endTime: m.endTime,
+          requesterEmail: getMeetingRequestEmail(m),
+          requestReason: getMeetingRequestReason(m),
+        })),
         unavailability: unavailability.map(u => ({ date: u.date, startTime: u.startTime, endTime: u.endTime, allDay: u.allDay, reason: u.reason })),
         pendingRequests: meetingRequests.filter(r => r.status === 'pending').map(r => ({ id: r.id, name: r.name, email: r.email, date: r.date, startTime: r.startTime, endTime: r.endTime, reason: r.reason })),
       };
@@ -441,7 +466,7 @@ Otherwise, provide a helpful response about their calendar.`;
 
           const { push } = await import('firebase/database');
           await push(ref(database, 'meetings/'), {
-            title: `Meeting with ${req.name}`,
+            title: 'Meeting with Pastor',
             date: req.date,
             startTime: req.startTime,
             endTime: req.endTime,
@@ -449,6 +474,10 @@ Otherwise, provide a helpful response about their calendar.`;
             meetLink,
             type: 'counseling',
             participantIds: [],
+            requestName: req.name,
+            requestEmail: req.email,
+            requestReason: req.reason || '',
+            sourceRequestId: id,
             updatedAt: Date.now(),
           });
 
@@ -709,7 +738,7 @@ Otherwise, provide a helpful response about their calendar.`;
                     }}
                     className="p-2 bg-stone-50 rounded-lg text-[10px] cursor-pointer group hover:bg-[#8B1E1E] transition-colors"
                   >
-                    <div className="font-bold group-hover:text-white line-clamp-1">{m.title}</div>
+                    <div className="font-bold group-hover:text-white line-clamp-1">{getMeetingDisplayTitle(m)}</div>
                     <div className="text-gray-500 group-hover:text-white/80">{m.startTime}</div>
                   </div>
                 ))}
@@ -737,6 +766,10 @@ Otherwise, provide a helpful response about their calendar.`;
             const meetingParticipants = (m.participantIds || []).map(id =>
               participants.find(p => p.id === id)
             ).filter(Boolean) as Participant[];
+
+            const requestEmail = getMeetingRequestEmail(m);
+            const requestReason = getMeetingRequestReason(m);
+
             return (
               <div key={m.id} className="flex flex-col md:flex-row md:items-center justify-between p-6 bg-stone-50 rounded-2xl border border-gray-100 hover:border-[#8B1E1E]/20 transition-all gap-4">
                 <div className="flex items-center gap-6">
@@ -745,14 +778,16 @@ Otherwise, provide a helpful response about their calendar.`;
                     <span className="text-2xl font-bold text-[#8B1E1E] leading-none">{format(parseISO(m.date), 'dd')}</span>
                   </div>
                   <div>
-                    <h4 className="text-lg font-bold">{m.title}</h4>
+                    <h4 className="text-lg font-bold">{getMeetingDisplayTitle(m)}</h4>
                     <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-500 mt-1">
                       <span className="flex items-center gap-1"><Clock size={12} /> {m.startTime} - {m.endTime}</span>
                       {m.location && <span className="flex items-center gap-1"><MapPin size={12} /> {m.location}</span>}
+                      {requestEmail && <span className="flex items-center gap-1"><Mail size={12} /> {requestEmail}</span>}
                       {meetingParticipants.length > 0 && (
                         <span className="flex items-center gap-1"><Users size={12} /> {meetingParticipants.map(p => p.name).join(', ')}</span>
                       )}
                     </div>
+                    {requestReason && <p className="text-xs text-gray-400 mt-1 italic">{requestReason}</p>}
                   </div>
                 </div>
                 <div className="flex items-center gap-3 self-end md:self-auto">
