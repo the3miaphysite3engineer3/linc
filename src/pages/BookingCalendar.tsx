@@ -76,7 +76,7 @@ export default function BookingCalendar() {
               date: val.date,
               startHour: timeToHour(startTime),
               endHour: timeToHour(endTime),
-              title: val.reason || 'Available',
+              title: val.reason || t('booking.slotAvailable'),
               type: 'available',
             });
           }
@@ -95,7 +95,7 @@ export default function BookingCalendar() {
                 date: val.date,
                 startHour: timeToHour(val.startTime),
                 endHour: timeToHour(val.endTime),
-                title: 'Booked',
+                title: t('booking.booked'),
                 type: 'meeting',
               });
             }
@@ -117,7 +117,7 @@ export default function BookingCalendar() {
                   date: val.date,
                   startHour: timeToHour(startTime),
                   endHour: timeToHour(endTime),
-                  title: val.reason || 'Unavailable',
+                  title: val.reason || t('booking.unavailable'),
                   type: 'unavailable',
                 });
               }
@@ -128,7 +128,7 @@ export default function BookingCalendar() {
         });
       });
     });
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     const adminsRef = ref(database, 'admins/');
@@ -257,8 +257,8 @@ export default function BookingCalendar() {
       for (const pastorEmail of pastors) {
         try {
           await sendEmailViaEmailJS(pastorEmail, {
-            subject: `New Meeting Request from ${name}`,
-            fullReport: `A new meeting request has been submitted:\n\nName: ${name}\nEmail: ${email}\nDate: ${dateStr}\nTime: ${hourToTime(selectedSlot)} - ${hourToTime(selectedSlot + SLOT_DURATION)}\nReason: ${reason}\n\nPlease log in to the dashboard to accept or reject this request.`,
+            subject: `${t('booking.newMeetingRequestSubject')} ${name}`,
+            fullReport: `${t('booking.newMeetingRequestBody')}\n\n${t('booking.name')}: ${name}\n${t('booking.emailLabel')}: ${email}\n${t('booking.date')}: ${dateStr}\n${t('booking.timeLabel')}: ${hourToTime(selectedSlot)} - ${hourToTime(selectedSlot + SLOT_DURATION)}\n${t('booking.reason')}: ${reason}\n\n${t('booking.adminInstructions')}`,
           });
         } catch (err) {
           console.error(`Failed to notify pastor ${pastorEmail}:`, err);
@@ -303,7 +303,7 @@ export default function BookingCalendar() {
           className="flex items-center gap-2 bg-purple-50 hover:bg-purple-100 text-purple-700 px-5 py-3 rounded-xl font-bold transition-colors text-sm border border-purple-200"
         >
           <Bot size={16} />
-          AI Assistant
+          {t('booking.aiAssistant')}
         </button>
       </div>
 
@@ -362,10 +362,10 @@ export default function BookingCalendar() {
                 <div className={`text-sm font-bold ${isSelected ? 'text-white' : ''}`}>{format(day, 'd')}</div>
                 {isPast && <div className="text-[8px] text-gray-300 mt-1">✕</div>}
                 {!isPast && !hasAvailability && (
-                  <div className="text-[8px] text-red-400 mt-1">Unavailable</div>
+                  <div className="text-[8px] text-red-400 mt-1">{t('booking.unavailable')}</div>
                 )}
                 {!isPast && hasAvailability && (
-                  <div className={`text-[8px] mt-1 ${isSelected ? 'text-white/80' : 'text-green-600'}`}>Available</div>
+                  <div className={`text-[8px] mt-1 ${isSelected ? 'text-white/80' : 'text-green-600'}`}>{t('booking.slotAvailable')}</div>
                 )}
                 {!isPast && visibleDayBlocks.length > 0 && (
                   <div className="flex flex-col gap-0.5 mt-1 flex-1 justify-end">
@@ -379,7 +379,7 @@ export default function BookingCalendar() {
                       </div>
                     ))}
                     {visibleDayBlocks.length > 2 && (
-                      <div className={`text-[8px] ${isSelected ? 'text-white/60' : 'text-gray-400'}`}>+{visibleDayBlocks.length - 2} more</div>
+                      <div className={`text-[8px] ${isSelected ? 'text-white/60' : 'text-gray-400'}`}>+{visibleDayBlocks.length - 2} {t('booking.more')}</div>
                     )}
                   </div>
                 )}
@@ -404,7 +404,7 @@ export default function BookingCalendar() {
               <div className="mb-6 bg-stone-50 rounded-xl p-4 border border-gray-100">
                 <div className="flex items-center gap-2 mb-3">
                   <Ban size={14} className="text-red-500" />
-                  <span className="text-xs font-bold text-gray-500 uppercase tracking-widest">Schedule Blocks</span>
+                  <span className="text-xs font-bold text-gray-500 uppercase tracking-widest">{t('booking.scheduleBlocks')}</span>
                 </div>
                 <div className="space-y-2">
                   {daySlots.map((slot, i) => (
@@ -429,7 +429,7 @@ export default function BookingCalendar() {
             {daySlots.filter(slot => slot.type === 'available').length === 0 && (
               <div className="mb-6 bg-red-50 rounded-xl p-4 border border-red-100 text-center">
                 <AlertCircle size={22} className="text-red-500 mx-auto mb-2" />
-                <p className="text-red-600 font-bold text-sm">No availability has been opened for this day.</p>
+                <p className="text-red-600 font-bold text-sm">{t('booking.noAvailabilityOpenedForDay')}</p>
               </div>
             )}
 
@@ -453,7 +453,7 @@ export default function BookingCalendar() {
                     }`}
                   >
                     {hourToLabel(hour, locale as 'en' | 'ar')}
-                    {status === 'booked' && <div className="text-[9px] mt-1">Booked</div>}
+                    {status === 'booked' && <div className="text-[9px] mt-1">{t('booking.booked')}</div>}
                     {status === 'infeasible' && <div className="text-[9px] mt-1">—</div>}
                     {status === 'available' && <div className="text-[9px] mt-1 text-green-500">{t('booking.slotAvailable')}</div>}
                   </button>
