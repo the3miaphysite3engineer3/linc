@@ -68,7 +68,7 @@ export default function BookMeeting({ isOpen, onClose, preSelectedDate }: BookMe
               date: val.date,
               startHour: timeToHour(val.startTime),
               endHour: timeToHour(val.endTime),
-              title: val.title || 'Meeting',
+              title: val.title || t('booking.meeting'),
               type: 'meeting',
             });
           }
@@ -87,7 +87,7 @@ export default function BookMeeting({ isOpen, onClose, preSelectedDate }: BookMe
                 date: val.date,
                 startHour: timeToHour(startTime),
                 endHour: timeToHour(endTime),
-                title: val.reason || 'Unavailable',
+                title: val.reason || t('booking.unavailable'),
                 type: 'unavailable',
               });
             }
@@ -104,7 +104,7 @@ export default function BookMeeting({ isOpen, onClose, preSelectedDate }: BookMe
                   date: val.date,
                   startHour: timeToHour(val.startTime),
                   endHour: timeToHour(val.endTime),
-                  title: `Request: ${val.name || 'Unknown'}`,
+                  title: `${t('booking.requestPrefix')}: ${val.name || t('booking.unknown')}`,
                   type: 'meeting',
                 });
               }
@@ -114,7 +114,7 @@ export default function BookMeeting({ isOpen, onClose, preSelectedDate }: BookMe
         });
       });
     });
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     const adminsRef = ref(database, 'admins/');
@@ -208,8 +208,8 @@ export default function BookMeeting({ isOpen, onClose, preSelectedDate }: BookMe
       for (const pastorEmail of pastors) {
         try {
           await sendEmailViaEmailJS(pastorEmail, {
-            subject: `New Meeting Request from ${name}`,
-            fullReport: `A new meeting request has been submitted:\n\nName: ${name}\nEmail: ${email}\nDate: ${dateStr}\nTime: ${hourToTime(selectedSlot)} - ${hourToTime(selectedSlot + SLOT_DURATION)}\nReason: ${reason}\n\nPlease log in to the dashboard to accept or reject this request.`,
+            subject: `${t('booking.newMeetingRequestSubject')} ${name}`,
+            fullReport: `${t('booking.newMeetingRequestBody')}\n\n${t('booking.name')}: ${name}\n${t('booking.emailLabel')}: ${email}\n${t('booking.date')}: ${dateStr}\n${t('booking.timeLabel')}: ${hourToTime(selectedSlot)} - ${hourToTime(selectedSlot + SLOT_DURATION)}\n${t('booking.reason')}: ${reason}\n\n${t('booking.adminInstructions')}`,
           });
         } catch {
           // silently continue
@@ -251,7 +251,7 @@ export default function BookMeeting({ isOpen, onClose, preSelectedDate }: BookMe
           className="flex items-center gap-2 bg-purple-50 hover:bg-purple-100 text-purple-700 px-5 py-3 rounded-xl font-bold transition-colors text-sm border border-purple-200"
         >
           <Bot size={16} />
-          AI Assistant
+          {t('booking.aiAssistant')}
         </button>
       </div>
 
@@ -315,7 +315,7 @@ export default function BookMeeting({ isOpen, onClose, preSelectedDate }: BookMe
                       </div>
                     ))}
                     {dayBlocks.length > 2 && (
-                      <div className={`text-[8px] ${isSelected ? 'text-white/60' : 'text-gray-400'}`}>+{dayBlocks.length - 2} more</div>
+                      <div className={`text-[8px] ${isSelected ? 'text-white/60' : 'text-gray-400'}`}>+{dayBlocks.length - 2} {t('booking.more')}</div>
                     )}
                   </div>
                 )}
@@ -340,7 +340,7 @@ export default function BookMeeting({ isOpen, onClose, preSelectedDate }: BookMe
               <div className="mb-6 bg-stone-50 rounded-xl p-4 border border-gray-100">
                 <div className="flex items-center gap-2 mb-3">
                   <Ban size={14} className="text-red-500" />
-                  <span className="text-xs font-bold text-gray-500 uppercase tracking-widest">Blocked Slots</span>
+                  <span className="text-xs font-bold text-gray-500 uppercase tracking-widest">{t('booking.blockedSlots')}</span>
                 </div>
                 <div className="space-y-2">
                   {daySlots.map((slot, i) => (
@@ -380,7 +380,7 @@ export default function BookMeeting({ isOpen, onClose, preSelectedDate }: BookMe
                     }`}
                   >
                     {hourToLabel(hour, locale as 'en' | 'ar')}
-                    {status === 'booked' && <div className="text-[9px] mt-1">Booked</div>}
+                    {status === 'booked' && <div className="text-[9px] mt-1">{t('booking.booked')}</div>}
                     {status === 'infeasible' && <div className="text-[9px] mt-1">—</div>}
                     {status === 'available' && <div className="text-[9px] mt-1 text-green-500">{t('booking.slotAvailable')}</div>}
                   </button>
