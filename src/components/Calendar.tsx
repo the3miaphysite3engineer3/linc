@@ -18,7 +18,6 @@ import {
 } from '../services/gmail';
 import PageTitle from './PageTitle';
 import { useI18n } from '../i18n';
-import BookMeeting from './BookMeeting';
 import OpenAI from 'openai';
 
 interface Participant {
@@ -50,7 +49,6 @@ export default function Calendar() {
   const [showParticipantDropdown, setShowParticipantDropdown] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
   const [meetingRequests, setMeetingRequests] = useState<MeetingRequest[]>([]);
-  const [showBookingModal, setShowBookingModal] = useState(false);
   const [showRequests, setShowRequests] = useState(false);
   const [unavailability, setUnavailability] = useState<Unavailability[]>([]);
   const [showUnavailabilityModal, setShowUnavailabilityModal] = useState(false);
@@ -508,13 +506,6 @@ Otherwise, provide a helpful response about their calendar.`;
           <p className="text-xs text-gray-400 uppercase tracking-widest mt-1">{t('calendar.schedule')}</p>
         </div>
         <div className="flex items-center gap-4 flex-wrap">
-          <button
-            onClick={() => setShowBookingModal(true)}
-            className="flex items-center gap-2 bg-stone-100 hover:bg-stone-200 text-[#8B1E1E] px-5 py-3 rounded-xl font-bold transition-colors text-sm"
-          >
-            <CalendarIcon size={16} />
-            {t('booking.bookBtn')}
-          </button>
           <div className="flex bg-stone-50 rounded-xl p-1 border border-gray-200">
             <button onClick={() => setCurrentDate(subMonths(currentDate, 1))} className="p-2 hover:bg-white rounded-lg transition-all"><ChevronLeft size={20} /></button>
             <button onClick={() => setCurrentDate(addMonths(currentDate, 1))} className="p-2 hover:bg-white rounded-lg transition-all"><ChevronRight size={20} /></button>
@@ -982,8 +973,6 @@ Otherwise, provide a helpful response about their calendar.`;
           </motion.div>
         </div>
       )}
-
-      <BookMeeting isOpen={showBookingModal} onClose={() => setShowBookingModal(false)} />
 
       {/* Unavailability Modal */}
       {showUnavailabilityModal && (
