@@ -417,7 +417,7 @@ export default function Calendar() {
   };
 
   const handleDelete = async (id: string) => {
-    if (confirm('Delete this meeting?')) {
+    if (confirm(t('calendar.confirmDelete'))) {
       try {
         const { remove } = await import('firebase/database');
         await remove(ref(database, `meetings/${id}`));
@@ -449,7 +449,7 @@ export default function Calendar() {
         const selectedDates = buildAvailabilityDates();
 
         if (selectedDates.length === 0) {
-          alert('No available dates selected.');
+          alert(t('calendar.noAvailableDatesSelected'));
           return;
         }
 
@@ -468,14 +468,14 @@ export default function Calendar() {
       resetAvailabilityForm();
     } catch (err) {
       console.error(err);
-      alert('Failed to save availability.');
+      alert(t('calendar.saveAvailabilityFailed'));
     } finally {
       setLoading(false);
     }
   };
 
   const handleDeleteAvailability = async (id: string) => {
-    if (confirm('Remove this availability?')) {
+    if (confirm(t('calendar.removeAvailabilityConfirm'))) {
       try {
         const { remove } = await import('firebase/database');
         await remove(ref(database, `availability/${id}`));
@@ -512,14 +512,14 @@ export default function Calendar() {
       resetUnavailabilityForm();
     } catch (err) {
       console.error(err);
-      alert('Failed to save unavailability.');
+      alert(t('calendar.saveUnavailabilityFailed'));
     } finally {
       setLoading(false);
     }
   };
 
   const handleDeleteUnavailability = async (id: string) => {
-    if (confirm('Remove this unavailability?')) {
+    if (confirm(t('calendar.removeUnavailabilityConfirm'))) {
       try {
         const { remove } = await import('firebase/database');
         await remove(ref(database, `unavailability/${id}`));
@@ -760,7 +760,7 @@ Otherwise, provide a helpful response about their calendar.`;
         <div>
           <h2 className="text-2xl font-bold text-[#1A1A1A]">{format(currentDate, 'MMMM yyyy')}</h2>
           <p className="text-xs text-gray-400 uppercase tracking-widest mt-1">
-            Availability opens booking. Unavailability closes booking.
+            {t('calendar.availabilityOpensBooking')}
           </p>
         </div>
         <div className="flex items-center gap-4 flex-wrap">
@@ -807,7 +807,7 @@ Otherwise, provide a helpful response about their calendar.`;
             className="flex items-center gap-2 bg-green-50 hover:bg-green-100 text-green-700 px-5 py-3 rounded-xl font-bold transition-colors text-sm border border-green-200"
           >
             <CheckCircle size={16} />
-            <span>Mark Available</span>
+            <span>{t('calendar.markAvailable')}</span>
           </button>
           <button
             onClick={() => {
@@ -818,7 +818,7 @@ Otherwise, provide a helpful response about their calendar.`;
             className="flex items-center gap-2 bg-red-50 hover:bg-red-100 text-red-700 px-5 py-3 rounded-xl font-bold transition-colors text-sm border border-red-200"
           >
             <XCircle size={16} />
-            <span>Mark Unavailable</span>
+            <span>{t('calendar.markUnavailable')}</span>
           </button>
           <button
             onClick={() => {
@@ -837,7 +837,7 @@ Otherwise, provide a helpful response about their calendar.`;
             className="flex items-center gap-2 bg-purple-50 hover:bg-purple-100 text-purple-700 px-5 py-3 rounded-xl font-bold transition-colors text-sm border border-purple-200"
           >
             <Bot size={16} />
-            <span>AI Assistant</span>
+            <span>{t('calendar.aiAssistant')}</span>
           </button>
         </div>
       </div>
@@ -942,7 +942,7 @@ Otherwise, provide a helpful response about their calendar.`;
               <div className="space-y-2">
                 {dayAvailability.length === 0 && (
                   <div className="p-2 bg-gray-50 rounded-lg text-[10px] border border-gray-100 text-gray-400 font-bold">
-                    No availability opened
+                    {t('calendar.noAvailabilityOpened')}
                   </div>
                 )}
 
@@ -976,7 +976,7 @@ Otherwise, provide a helpful response about their calendar.`;
                     >
                       <X size={10} />
                     </button>
-                    <div className="font-bold text-green-700 line-clamp-1">{a.allDay ? 'Available' : `${a.startTime} - ${a.endTime}`}</div>
+                    <div className="font-bold text-green-700 line-clamp-1">{a.allDay ? t('calendar.available') : `${a.startTime} - ${a.endTime}`}</div>
                     {a.reason && <div className="text-green-600 text-[9px] mt-0.5 line-clamp-1">{a.reason}</div>}
                   </div>
                 ))}
@@ -1007,7 +1007,7 @@ Otherwise, provide a helpful response about their calendar.`;
                     >
                       <X size={10} />
                     </button>
-                    <div className="font-bold text-red-700 line-clamp-1">{u.allDay ? 'Unavailable' : `${u.startTime} - ${u.endTime}`}</div>
+                    <div className="font-bold text-red-700 line-clamp-1">{u.allDay ? t('calendar.unavailable') : `${u.startTime} - ${u.endTime}`}</div>
                     {u.reason && <div className="text-red-500 text-[9px] mt-0.5 line-clamp-1">{u.reason}</div>}
                   </div>
                 ))}
@@ -1164,7 +1164,7 @@ Otherwise, provide a helpful response about their calendar.`;
                             onClick={() => setSelectedParticipants(participants.map(p => p.id))}
                             className="text-[10px] text-[#8B1E1E] font-bold hover:underline"
                           >
-                            Select All
+                            {t('calendar.selectAll')}
                           </button>
                         </div>
                         {participants.map(p => (
@@ -1260,7 +1260,7 @@ Otherwise, provide a helpful response about their calendar.`;
               </div>
 
               <div className="space-y-1">
-                <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">Location (Optional)</label>
+                <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">{t('calendar.location')}</label>
                 <div className="relative">
                   <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
                   <input type="text" className="w-full pl-12 pr-4 py-3 bg-stone-50 border-none rounded-xl focus:ring-2 focus:ring-[#8B1E1E]/20 outline-none" value={newMeeting.location} onChange={e => setNewMeeting(p => ({ ...p, location: e.target.value }))} />
@@ -1294,8 +1294,8 @@ Otherwise, provide a helpful response about their calendar.`;
           <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="bg-white w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden max-h-[90vh] overflow-y-auto">
             <div className="p-6 border-b flex justify-between items-center bg-stone-50 sticky top-0 z-10">
               <div>
-                <h3 className="text-xl font-bold text-green-700">{editingAvailability ? 'Edit Availability' : 'Mark Available'}</h3>
-                <p className="text-xs text-gray-400 mt-1">This writes to availability/ in the database.</p>
+                <h3 className="text-xl font-bold text-green-700">{editingAvailability ? t('calendar.editAvailability') : t('calendar.markAvailable')}</h3>
+                <p className="text-xs text-gray-400 mt-1">{t('calendar.availabilityDatabaseNote')}</p>
               </div>
               <button onClick={() => { setShowAvailabilityModal(false); setEditingAvailability(null); resetAvailabilityForm(); }} className="p-2 hover:bg-gray-200 rounded-full transition-colors"><X size={20} /></button>
             </div>
@@ -1311,7 +1311,7 @@ Otherwise, provide a helpful response about their calendar.`;
                         : 'bg-white text-green-700 border-green-200 hover:bg-green-50'
                     }`}
                   >
-                    Single Day
+                    {t('calendar.singleDay')}
                   </button>
                   <button
                     type="button"
@@ -1322,14 +1322,14 @@ Otherwise, provide a helpful response about their calendar.`;
                         : 'bg-white text-green-700 border-green-200 hover:bg-green-50'
                     }`}
                   >
-                    Multiple Days
+                    {t('calendar.multipleDays')}
                   </button>
                 </div>
               )}
 
               {(availabilityForm.mode === 'single' || editingAvailability) && (
                 <div className="space-y-1">
-                  <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">Date</label>
+                  <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">{t('calendar.dateField')}</label>
                   <input
                     required
                     type="date"
@@ -1344,7 +1344,7 @@ Otherwise, provide a helpful response about their calendar.`;
                 <>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1">
-                      <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">Start Date</label>
+                      <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">{t('calendar.startDate')}</label>
                       <input
                         required
                         type="date"
@@ -1354,7 +1354,7 @@ Otherwise, provide a helpful response about their calendar.`;
                       />
                     </div>
                     <div className="space-y-1">
-                      <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">End Date</label>
+                      <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">{t('calendar.endDate')}</label>
                       <input
                         required
                         type="date"
@@ -1366,16 +1366,16 @@ Otherwise, provide a helpful response about their calendar.`;
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">Days Included</label>
+                    <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">{t('calendar.daysIncluded')}</label>
                     <div className="grid grid-cols-7 gap-2">
                       {[
-                        { day: 0, label: 'Sun' },
-                        { day: 1, label: 'Mon' },
-                        { day: 2, label: 'Tue' },
-                        { day: 3, label: 'Wed' },
-                        { day: 4, label: 'Thu' },
-                        { day: 5, label: 'Fri' },
-                        { day: 6, label: 'Sat' },
+                        { day: 0, label: t('calendar.sun') },
+                        { day: 1, label: t('calendar.mon') },
+                        { day: 2, label: t('calendar.tue') },
+                        { day: 3, label: t('calendar.wed') },
+                        { day: 4, label: t('calendar.thu') },
+                        { day: 5, label: t('calendar.fri') },
+                        { day: 6, label: t('calendar.sat') },
                       ].map(item => (
                         <button
                           key={item.day}
@@ -1392,7 +1392,7 @@ Otherwise, provide a helpful response about their calendar.`;
                       ))}
                     </div>
                     <p className="text-xs text-gray-400">
-                      Selected dates to create: {availabilityDateCount}
+                      {t('calendar.selectedDatesToCreate')}: {availabilityDateCount}
                     </p>
                   </div>
                 </>
@@ -1406,13 +1406,13 @@ Otherwise, provide a helpful response about their calendar.`;
                   onChange={e => setAvailabilityForm(p => ({ ...p, allDay: e.target.checked }))}
                   className="w-4 h-4 rounded border-gray-300 text-green-600 focus:ring-green-500"
                 />
-                <label htmlFor="allDayAvailability" className="text-sm font-bold text-gray-700">All Bookable Hours</label>
+                <label htmlFor="allDayAvailability" className="text-sm font-bold text-gray-700">{t('calendar.allBookableHours')}</label>
               </div>
 
               {!availabilityForm.allDay && (
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1">
-                    <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">Start Time</label>
+                    <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">{t('calendar.startTime')}</label>
                     <input
                       required
                       type="time"
@@ -1422,7 +1422,7 @@ Otherwise, provide a helpful response about their calendar.`;
                     />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">End Time</label>
+                    <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">{t('calendar.endTime')}</label>
                     <input
                       required
                       type="time"
@@ -1435,10 +1435,10 @@ Otherwise, provide a helpful response about their calendar.`;
               )}
 
               <div className="space-y-1">
-                <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">Reason / Label (Optional)</label>
+                <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">{t('calendar.reasonLabelOptional')}</label>
                 <input
                   type="text"
-                  placeholder="e.g., Office Hours, Counseling Available"
+                  placeholder={t('calendar.availabilityPlaceholder')}
                   className="w-full px-4 py-3 bg-stone-50 border-none rounded-xl focus:ring-2 focus:ring-green-300 outline-none"
                   value={availabilityForm.reason}
                   onChange={e => setAvailabilityForm(p => ({ ...p, reason: e.target.value }))}
@@ -1447,11 +1447,11 @@ Otherwise, provide a helpful response about their calendar.`;
 
               <button disabled={loading} type="submit" className="w-full py-4 bg-green-600 text-white rounded-2xl font-bold shadow-xl shadow-green-600/10 hover:scale-[1.02] active:scale-98 transition-all flex items-center justify-center gap-2">
                 {loading ? (
-                  <>Saving...</>
+                  <>{t('calendar.savingPlain')}</>
                 ) : (
                   <>
                     <Send size={16} />
-                    {editingAvailability ? 'Update Availability' : `Mark ${availabilityForm.mode === 'multiple' ? availabilityDateCount : 1} Day${availabilityForm.mode === 'multiple' && availabilityDateCount !== 1 ? 's' : ''} Available`}
+                    {editingAvailability ? t('calendar.updateAvailability') : availabilityForm.mode === 'multiple' ? `${t('calendar.markDaysAvailable')} (${availabilityDateCount})` : t('calendar.markDayAvailable')}
                   </>
                 )}
               </button>
@@ -1465,14 +1465,14 @@ Otherwise, provide a helpful response about their calendar.`;
           <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="bg-white w-full max-w-md rounded-3xl shadow-2xl overflow-hidden max-h-[90vh] overflow-y-auto">
             <div className="p-6 border-b flex justify-between items-center bg-stone-50 sticky top-0 z-10">
               <div>
-                <h3 className="text-xl font-bold text-red-700">{editingUnavailability ? 'Edit Unavailability' : 'Mark Unavailable'}</h3>
-                <p className="text-xs text-gray-400 mt-1">This writes to unavailability/ in the database.</p>
+                <h3 className="text-xl font-bold text-red-700">{editingUnavailability ? t('calendar.editUnavailability') : t('calendar.markUnavailable')}</h3>
+                <p className="text-xs text-gray-400 mt-1">{t('calendar.unavailabilityDatabaseNote')}</p>
               </div>
               <button onClick={() => { setShowUnavailabilityModal(false); setEditingUnavailability(null); resetUnavailabilityForm(); }} className="p-2 hover:bg-gray-200 rounded-full transition-colors"><X size={20} /></button>
             </div>
             <form onSubmit={handleCreateUnavailability} className="p-6 space-y-4">
               <div className="space-y-1">
-                <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">Date</label>
+                <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">{t('calendar.dateField')}</label>
                 <input
                   required
                   type="date"
@@ -1490,13 +1490,13 @@ Otherwise, provide a helpful response about their calendar.`;
                   onChange={e => setUnavailabilityForm(p => ({ ...p, allDay: e.target.checked }))}
                   className="w-4 h-4 rounded border-gray-300 text-red-600 focus:ring-red-500"
                 />
-                <label htmlFor="allDayUnavailability" className="text-sm font-bold text-gray-700">All Day</label>
+                <label htmlFor="allDayUnavailability" className="text-sm font-bold text-gray-700">{t('calendar.allDay')}</label>
               </div>
 
               {!unavailabilityForm.allDay && (
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1">
-                    <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">Start Time</label>
+                    <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">{t('calendar.startTime')}</label>
                     <input
                       required
                       type="time"
@@ -1506,7 +1506,7 @@ Otherwise, provide a helpful response about their calendar.`;
                     />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">End Time</label>
+                    <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">{t('calendar.endTime')}</label>
                     <input
                       required
                       type="time"
@@ -1519,10 +1519,10 @@ Otherwise, provide a helpful response about their calendar.`;
               )}
 
               <div className="space-y-1">
-                <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">Reason (Optional)</label>
+                <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">{t('calendar.reasonOptional')}</label>
                 <input
                   type="text"
-                  placeholder="e.g., Vacation, Conference"
+                  placeholder={t('calendar.unavailabilityPlaceholder')}
                   className="w-full px-4 py-3 bg-stone-50 border-none rounded-xl focus:ring-2 focus:ring-red-300 outline-none"
                   value={unavailabilityForm.reason}
                   onChange={e => setUnavailabilityForm(p => ({ ...p, reason: e.target.value }))}
@@ -1531,11 +1531,11 @@ Otherwise, provide a helpful response about their calendar.`;
 
               <button disabled={loading} type="submit" className="w-full py-4 bg-red-600 text-white rounded-2xl font-bold shadow-xl shadow-red-600/10 hover:scale-[1.02] active:scale-98 transition-all flex items-center justify-center gap-2">
                 {loading ? (
-                  <>Saving...</>
+                  <>{t('calendar.savingPlain')}</>
                 ) : (
                   <>
                     <Send size={16} />
-                    {editingUnavailability ? 'Update Unavailability' : 'Mark Unavailable'}
+                    {editingUnavailability ? t('calendar.updateUnavailability') : t('calendar.markUnavailable')}
                   </>
                 )}
               </button>
@@ -1553,8 +1553,8 @@ Otherwise, provide a helpful response about their calendar.`;
                   <Bot size={20} />
                 </div>
                 <div>
-                  <h3 className="text-lg font-bold">Pastor AI Assistant</h3>
-                  <p className="text-xs text-white/80">Manage calendar with natural language</p>
+                  <h3 className="text-lg font-bold">{t('calendar.pastorAiAssistant')}</h3>
+                  <p className="text-xs text-white/80">{t('calendar.manageCalendarNaturalLanguage')}</p>
                 </div>
               </div>
               <button onClick={() => setShowAiAssistant(false)} className="p-2 hover:bg-white/20 rounded-full transition-colors">
@@ -1573,7 +1573,7 @@ Otherwise, provide a helpful response about their calendar.`;
                     {msg.role === 'assistant' && (
                       <div className="flex items-center gap-2 mb-1">
                         <Bot size={12} className="text-purple-500" />
-                        <span className="text-xs font-bold text-purple-600">AI Assistant</span>
+                        <span className="text-xs font-bold text-purple-600">{t('calendar.aiAssistant')}</span>
                       </div>
                     )}
                     <p className="text-sm">{msg.content}</p>
