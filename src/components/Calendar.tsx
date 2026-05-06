@@ -56,7 +56,7 @@ export default function Calendar() {
   const [newUnavailability, setNewUnavailability] = useState<Omit<Unavailability, 'id'>>({
     date: format(new Date(), 'yyyy-MM-dd'),
     startTime: '08:00',
-    endTime: '17:00',
+    endTime: '20:00',
     reason: '',
     allDay: true,
   });
@@ -325,7 +325,7 @@ export default function Calendar() {
       setNewUnavailability({
         date: format(new Date(), 'yyyy-MM-dd'),
         startTime: '08:00',
-        endTime: '17:00',
+        endTime: '20:00',
         reason: '',
         allDay: true,
       });
@@ -576,7 +576,7 @@ Otherwise, provide a helpful response about their calendar.`;
               setNewUnavailability({
                 date: format(new Date(), 'yyyy-MM-dd'),
                 startTime: '08:00',
-                endTime: '17:00',
+                endTime: '20:00',
                 reason: '',
                 allDay: true,
               });
@@ -705,7 +705,7 @@ Otherwise, provide a helpful response about their calendar.`;
                       setNewUnavailability({
                         date: u.date,
                         startTime: u.startTime || '08:00',
-                        endTime: u.endTime || '17:00',
+                        endTime: u.endTime || '20:00',
                         reason: u.reason || '',
                         allDay: u.allDay,
                       });
