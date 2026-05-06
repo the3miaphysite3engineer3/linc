@@ -9,8 +9,8 @@ import AIBookingAssistant from '../components/AIBookingAssistant';
 import { sendEmailViaEmailJS } from '../services/gmail';
 
 const BUSINESS_START = 9;
-const BUSINESS_END = 17;
-const SLOT_DURATION = 1;
+const BUSINESS_END = 20;
+const SLOT_DURATION = 0.5;
 
 function timeToHour(t: string): number {
   return parseInt(t.split(':')[0], 10);
