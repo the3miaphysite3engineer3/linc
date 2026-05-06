@@ -4,6 +4,7 @@ import { ref, onValue, push } from 'firebase/database';
 import { motion, AnimatePresence } from 'motion/react';
 import { useI18n } from '../i18n';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, addMonths, subMonths, isToday, startOfDay, isBefore } from 'date-fns';
+import { ar, enUS } from 'date-fns/locale';
 import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Clock, CheckCircle, AlertCircle, User, Mail, MessageSquare, Ban, Bot, X } from 'lucide-react';
 import AIBookingAssistant from '../components/AIBookingAssistant';
 import { sendEmailViaEmailJS } from '../services/gmail';
@@ -46,6 +47,7 @@ interface ScheduleBlock {
 
 export default function BookingCalendar() {
   const { t, dir, locale } = useI18n();
+  const dateLocale = locale === 'ar' ? ar : enUS;
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDay, setSelectedDay] = useState<Date | null>(null);
   const [scheduleBlocks, setScheduleBlocks] = useState<ScheduleBlock[]>([]);
@@ -117,7 +119,7 @@ export default function BookingCalendar() {
                   date: val.date,
                   startHour: timeToHour(startTime),
                   endHour: timeToHour(endTime),
-                  title: val.reason || t('booking.unavailable'),
+                  title: t('booking.booked'),
                   type: 'unavailable',
                 });
               }
@@ -317,7 +319,7 @@ export default function BookingCalendar() {
         <div className="flex items-center justify-between mb-6">
           <button onClick={() => setCurrentDate(subMonths(currentDate, 1))} className="p-2 hover:bg-gray-100 rounded-full transition-colors"><ChevronLeft size={20} /></button>
           <div className="text-center">
-            <h2 className="text-xl font-bold text-[#1A1A1A]">{format(currentDate, 'MMMM yyyy')}</h2>
+            <h2 className="text-xl font-bold text-[#1A1A1A]">{format(currentDate, 'MMMM yyyy', { locale: dateLocale })}</h2>
             <p className="text-xs text-gray-400 uppercase tracking-widest mt-1">{t('calendar.schedule')}</p>
           </div>
           <button onClick={() => setCurrentDate(addMonths(currentDate, 1))} className="p-2 hover:bg-gray-100 rounded-full transition-colors"><ChevronRight size={20} /></button>
@@ -359,7 +361,7 @@ export default function BookingCalendar() {
                     : 'bg-red-50 border-red-100 text-gray-400 hover:border-[#8b1e1e]/30'
                 }`}
               >
-                <div className={`text-sm font-bold ${isSelected ? 'text-white' : ''}`}>{format(day, 'd')}</div>
+                <div className={`text-sm font-bold ${isSelected ? 'text-white' : ''}`}>{format(day, 'd', { locale: dateLocale })}</div>
                 {isPast && <div className="text-[8px] text-gray-300 mt-1">✕</div>}
                 {!isPast && !hasAvailability && (
                   <div className="text-[8px] text-red-400 mt-1">{t('booking.unavailable')}</div>
@@ -395,7 +397,7 @@ export default function BookingCalendar() {
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-lg font-bold flex items-center gap-2 text-[#8b1e1e]">
                 <Clock size={18} />
-                {format(selectedDay, 'EEEE, MMMM d, yyyy')}
+                {format(selectedDay, 'EEEE, MMMM d, yyyy', { locale: dateLocale })}
               </h3>
               <button onClick={() => setSelectedDay(null)} className="p-2 hover:bg-gray-100 rounded-full transition-colors"><X size={18} /></button>
             </div>
