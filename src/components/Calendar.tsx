@@ -54,6 +54,22 @@ function timeRangeToLabel(startTime: string | undefined, endTime: string | undef
   return `${timeToLabel(startTime, locale)} - ${timeToLabel(endTime, locale)}`;
 }
 
+
+function buildTimeOptions(startHour: number, endHour: number, step: number = 0.5): { value: string; hour: number }[] {
+  const options: { value: string; hour: number }[] = [];
+
+  for (let hour = startHour; hour <= endHour; hour += step) {
+    const roundedHour = Math.round(hour * 100) / 100;
+    options.push({ value: hourToTime(roundedHour), hour: roundedHour });
+  }
+
+  return options;
+}
+
+const MEETING_TIME_OPTIONS = buildTimeOptions(0, 23.5);
+const BOOKING_WINDOW_TIME_OPTIONS = buildTimeOptions(SLOT_BLOCK_START, SLOT_BLOCK_END);
+const FULL_DAY_TIME_OPTIONS = buildTimeOptions(0, 23.5);
+
 function slotOverlaps(startA: number, endA: number, startB: number, endB: number): boolean {
   return startA < endB && endA > startB;
 }
@@ -1362,11 +1378,19 @@ Otherwise, provide a helpful response about their calendar.`;
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1">
                   <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">{t('calendar.startTime')}</label>
-                  <input required type="time" className="w-full px-4 py-3 bg-stone-50 border-none rounded-xl focus:ring-2 focus:ring-[#8B1E1E]/20 outline-none" value={newMeeting.startTime} onChange={e => setNewMeeting(p => ({ ...p, startTime: e.target.value }))} />
+                  <select required className="w-full px-4 py-3 bg-stone-50 border-none rounded-xl focus:ring-2 focus:ring-[#8B1E1E]/20 outline-none" value={newMeeting.startTime} onChange={e => setNewMeeting(p => ({ ...p, startTime: e.target.value }))}>
+                    {MEETING_TIME_OPTIONS.map(option => (
+                      <option key={`meeting-start-${option.value}`} value={option.value}>{hourToLabel(option.hour, displayLocale)}</option>
+                    ))}
+                  </select>
                 </div>
                 <div className="space-y-1">
                   <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">{t('calendar.endTime')}</label>
-                  <input required type="time" className="w-full px-4 py-3 bg-stone-50 border-none rounded-xl focus:ring-2 focus:ring-[#8B1E1E]/20 outline-none" value={newMeeting.endTime} onChange={e => setNewMeeting(p => ({ ...p, endTime: e.target.value }))} />
+                  <select required className="w-full px-4 py-3 bg-stone-50 border-none rounded-xl focus:ring-2 focus:ring-[#8B1E1E]/20 outline-none" value={newMeeting.endTime} onChange={e => setNewMeeting(p => ({ ...p, endTime: e.target.value }))}>
+                    {MEETING_TIME_OPTIONS.map(option => (
+                      <option key={`meeting-end-${option.value}`} value={option.value}>{hourToLabel(option.hour, displayLocale)}</option>
+                    ))}
+                  </select>
                 </div>
               </div>
 
@@ -1649,23 +1673,29 @@ Otherwise, provide a helpful response about their calendar.`;
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1">
                     <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">{t('calendar.startTime')}</label>
-                    <input
+                    <select
                       required
-                      type="time"
                       className="w-full px-4 py-3 bg-stone-50 border-none rounded-xl focus:ring-2 focus:ring-green-300 outline-none"
                       value={availabilityForm.startTime}
                       onChange={e => setAvailabilityForm(p => ({ ...p, startTime: e.target.value }))}
-                    />
+                    >
+                      {BOOKING_WINDOW_TIME_OPTIONS.map(option => (
+                        <option key={`availability-start-${option.value}`} value={option.value}>{hourToLabel(option.hour, displayLocale)}</option>
+                      ))}
+                    </select>
                   </div>
                   <div className="space-y-1">
                     <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">{t('calendar.endTime')}</label>
-                    <input
+                    <select
                       required
-                      type="time"
                       className="w-full px-4 py-3 bg-stone-50 border-none rounded-xl focus:ring-2 focus:ring-green-300 outline-none"
                       value={availabilityForm.endTime}
                       onChange={e => setAvailabilityForm(p => ({ ...p, endTime: e.target.value }))}
-                    />
+                    >
+                      {BOOKING_WINDOW_TIME_OPTIONS.map(option => (
+                        <option key={`availability-end-${option.value}`} value={option.value}>{hourToLabel(option.hour, displayLocale)}</option>
+                      ))}
+                    </select>
                   </div>
                 </div>
               )}
@@ -1733,23 +1763,29 @@ Otherwise, provide a helpful response about their calendar.`;
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1">
                     <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">{t('calendar.startTime')}</label>
-                    <input
+                    <select
                       required
-                      type="time"
                       className="w-full px-4 py-3 bg-stone-50 border-none rounded-xl focus:ring-2 focus:ring-red-300 outline-none"
                       value={unavailabilityForm.startTime}
                       onChange={e => setUnavailabilityForm(p => ({ ...p, startTime: e.target.value }))}
-                    />
+                    >
+                      {FULL_DAY_TIME_OPTIONS.map(option => (
+                        <option key={`unavailability-start-${option.value}`} value={option.value}>{hourToLabel(option.hour, displayLocale)}</option>
+                      ))}
+                    </select>
                   </div>
                   <div className="space-y-1">
                     <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">{t('calendar.endTime')}</label>
-                    <input
+                    <select
                       required
-                      type="time"
                       className="w-full px-4 py-3 bg-stone-50 border-none rounded-xl focus:ring-2 focus:ring-red-300 outline-none"
                       value={unavailabilityForm.endTime}
                       onChange={e => setUnavailabilityForm(p => ({ ...p, endTime: e.target.value }))}
-                    />
+                    >
+                      {FULL_DAY_TIME_OPTIONS.map(option => (
+                        <option key={`unavailability-end-${option.value}`} value={option.value}>{hourToLabel(option.hour, displayLocale)}</option>
+                      ))}
+                    </select>
                   </div>
                 </div>
               )}
