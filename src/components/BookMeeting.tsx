@@ -10,7 +10,7 @@ import { sendEmailViaEmailJS } from '../services/gmail';
 
 const BUSINESS_START = 9;
 const BUSINESS_END = 20;
-const SLOT_DURATION = 1;
+const SLOT_DURATION = 0.5;
 
 function hourToLabel(h: number, locale: 'en' | 'ar'): string {
   const isAr = locale === 'ar';
