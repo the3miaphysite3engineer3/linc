@@ -2,9 +2,9 @@ import { useState, useEffect } from 'react';
 import { database } from '../firebase';
 import { ref, push, onValue } from 'firebase/database';
 import { motion } from 'motion/react';
-import { X, Calendar as CalendarIcon, Clock, Send, CheckCircle, User, Mail, MessageSquare, AlertTriangle, Sparkles, Bot } from 'lucide-react';
+import { X, Calendar as CalendarIcon, Clock, Send, CheckCircle, User, Mail, MessageSquare, AlertTriangle, Sparkles, Bot, Ban, CalendarCheck } from 'lucide-react';
 import { useI18n } from '../i18n';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import type { MeetingRequest } from '../types';
 import { findAvailableSlot, type CalendarContext, type AISuggestion } from '../services/gemini';
 import { sendEmailViaEmailJS } from '../services/gmail';
@@ -22,6 +22,7 @@ interface BusySlot {
   date: string;
   startTime: string;
   endTime: string;
+  type?: 'meeting' | 'unavailable';
 }
 
 function timesOverlap(s1: string, e1: string, s2: string, e2: string): boolean {
@@ -61,6 +62,7 @@ export default function BookMeeting({ isOpen, onClose, preSelectedDate, preSelec
           date: val.date,
           startTime: val.startTime,
           endTime: val.endTime,
+          type: 'meeting' as const,
         }));
         setBusySlots(slots);
         setMeetings(slots);
@@ -78,10 +80,11 @@ export default function BookMeeting({ isOpen, onClose, preSelectedDate, preSelec
       const data = snapshot.val();
       if (data) {
         const slots: BusySlot[] = Object.values(data).map((val: any) => ({
-          title: val.title || 'Unavailable',
+          title: val.reason || 'Unavailable',
           date: val.date,
           startTime: val.startTime || '00:00',
           endTime: val.endTime || '23:59',
+          type: 'unavailable' as const,
         }));
         setUnavailability(slots);
       } else {
@@ -108,11 +111,15 @@ export default function BookMeeting({ isOpen, onClose, preSelectedDate, preSelec
   }, []);
 
   useEffect(() => {
-    const conflict = busySlots.some(slot =>
+    const allBusy = [...busySlots, ...unavailability];
+    const conflict = allBusy.some(slot =>
       slot.date === date && timesOverlap(startTime, endTime, slot.startTime, slot.endTime)
     );
     setIsBusy(conflict);
-  }, [date, startTime, endTime, busySlots]);
+  }, [date, startTime, endTime, busySlots, unavailability]);
+
+  const daySlots = [...busySlots.filter(s => s.date === date), ...unavailability.filter(s => s.date === date)]
+    .sort((a, b) => a.startTime.localeCompare(b.startTime));
 
   const handleGetAiSuggestion = async () => {
     setAiLoading(true);
@@ -249,13 +256,38 @@ export default function BookMeeting({ isOpen, onClose, preSelectedDate, preSelec
             </div>
 
             <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1">
-                <label className="text-xs font-bold text-gray-400 uppercase tracking-widest flex items-center gap-1">
-                  <CalendarIcon size={12} />
-                  {t('booking.date')}
-                </label>
-                <input required type="date" min={format(new Date(), 'yyyy-MM-dd')} className="w-full px-4 py-3 bg-stone-50 border-none rounded-xl focus:ring-2 focus:ring-[#8B1E1E]/20 outline-none" value={date} onChange={e => setDate(e.target.value)} />
+            <div className="space-y-1">
+              <label className="text-xs font-bold text-gray-400 uppercase tracking-widest flex items-center gap-1">
+                <CalendarIcon size={12} />
+                {t('booking.date')}
+              </label>
+              <input required type="date" min={format(new Date(), 'yyyy-MM-dd')} className="w-full px-4 py-3 bg-stone-50 border-none rounded-xl focus:ring-2 focus:ring-[#8B1E1E]/20 outline-none" value={date} onChange={e => setDate(e.target.value)} />
+            </div>
+
+            {/* Blocked Slots Timeline */}
+            {daySlots.length > 0 && (
+              <div className="col-span-2 bg-stone-50 rounded-xl p-4 border border-gray-100">
+                <div className="flex items-center gap-2 mb-3">
+                  <Ban size={14} className="text-red-500" />
+                  <span className="text-xs font-bold text-gray-500 uppercase tracking-widest">Blocked on {format(parseISO(date), 'MMM d, yyyy')}</span>
+                </div>
+                <div className="space-y-2">
+                  {daySlots.map((slot, i) => (
+                    <div key={i} className={`flex items-center justify-between px-3 py-2 rounded-lg text-xs font-bold ${
+                      slot.type === 'unavailable'
+                        ? 'bg-red-100 text-red-700 border border-red-200'
+                        : 'bg-amber-100 text-amber-700 border border-amber-200'
+                    }`}>
+                      <div className="flex items-center gap-2">
+                        {slot.type === 'unavailable' ? <Ban size={12} /> : <CalendarCheck size={12} />}
+                        <span>{slot.title}</span>
+                      </div>
+                      <span className="opacity-75">{slot.startTime} - {slot.endTime}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
+            )}
             <div className="space-y-1">
               <label className="text-xs font-bold text-gray-400 uppercase tracking-widest flex items-center gap-1">
                 <Clock size={12} />
