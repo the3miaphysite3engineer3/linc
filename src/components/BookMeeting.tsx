@@ -43,6 +43,7 @@ interface BookMeetingProps {
 
 export default function BookMeeting({ isOpen, onClose, preSelectedDate }: BookMeetingProps = {}) {
   const { t, dir, locale } = useI18n();
+  const displayLocale = locale as 'en' | 'ar';
   const [currentDate, setCurrentDate] = useState(preSelectedDate ? new Date(preSelectedDate) : new Date());
   const [selectedDay, setSelectedDay] = useState<Date | null>(null);
   const [busyBlocks, setBusyBlocks] = useState<BusyBlock[]>([]);
@@ -209,7 +210,7 @@ export default function BookMeeting({ isOpen, onClose, preSelectedDate }: BookMe
         try {
           await sendEmailViaEmailJS(pastorEmail, {
             subject: `${t('booking.newMeetingRequestSubject')} ${name}`,
-            fullReport: `${t('booking.newMeetingRequestBody')}\n\n${t('booking.name')}: ${name}\n${t('booking.emailLabel')}: ${email}\n${t('booking.date')}: ${dateStr}\n${t('booking.timeLabel')}: ${hourToTime(selectedSlot)} - ${hourToTime(selectedSlot + SLOT_DURATION)}\n${t('booking.reason')}: ${reason}\n\n${t('booking.adminInstructions')}`,
+            fullReport: `${t('booking.newMeetingRequestBody')}\n\n${t('booking.name')}: ${name}\n${t('booking.emailLabel')}: ${email}\n${t('booking.date')}: ${dateStr}\n${t('booking.timeLabel')}: ${hourToLabel(selectedSlot, displayLocale)} - ${hourToLabel(selectedSlot + SLOT_DURATION, displayLocale)}\n${t('booking.reason')}: ${reason}\n\n${t('booking.adminInstructions')}`,
           });
         } catch {
           // silently continue
@@ -353,7 +354,7 @@ export default function BookMeeting({ isOpen, onClose, preSelectedDate }: BookMe
                         {slot.type === 'unavailable' ? <Ban size={12} /> : <CalendarIcon size={12} />}
                         <span>{slot.title}</span>
                       </div>
-                      <span className="opacity-75">{hourToTime(slot.startHour)} - {hourToTime(slot.endHour)}</span>
+                      <span className="opacity-75">{hourToLabel(slot.startHour, displayLocale)} - {hourToLabel(slot.endHour, displayLocale)}</span>
                     </div>
                   ))}
                 </div>
@@ -379,7 +380,7 @@ export default function BookMeeting({ isOpen, onClose, preSelectedDate }: BookMe
                         : 'bg-green-50 border-green-200 text-green-700 hover:bg-green-100 hover:scale-102 cursor-pointer'
                     }`}
                   >
-                    {hourToLabel(hour, locale as 'en' | 'ar')}
+                    {hourToLabel(hour, displayLocale)}
                     {status === 'booked' && <div className="text-[9px] mt-1">{t('booking.booked')}</div>}
                     {status === 'infeasible' && <div className="text-[9px] mt-1">—</div>}
                     {status === 'available' && <div className="text-[9px] mt-1 text-green-500">{t('booking.slotAvailable')}</div>}
@@ -391,7 +392,7 @@ export default function BookMeeting({ isOpen, onClose, preSelectedDate }: BookMe
             {selectedSlot !== null && !success && (
               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-stone-50 rounded-2xl p-5 border border-gray-100">
                 <h4 className="font-bold text-sm text-gray-500 mb-3 uppercase tracking-widest">
-                  {t('booking.bookFor')} {hourToLabel(selectedSlot, locale as 'en' | 'ar')}
+                  {t('booking.bookFor')} {hourToLabel(selectedSlot, displayLocale)}
                 </h4>
                 <form onSubmit={handleSubmit} className="space-y-3">
                   <div>
