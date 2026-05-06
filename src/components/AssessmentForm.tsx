@@ -436,8 +436,8 @@ export default function AssessmentForm() {
                     {[1, 2, 3, 4, 5].map(num => (
                       <label
                         key={num}
-                        className={`relative grid place-items-center min-h-[48px] border rounded-[14px] cursor-pointer bg-[#fafafa] transition-[transform,border-color,background,box-shadow] duration-150 select-none hover:-translate-y-[1px] hover:border-[rgba(139,30,30,0.45)] hover:shadow-[0_4px_12px_rgba(139,30,30,0.12)] ${
-                          giftScores[qId] === num ? 'bg-[#8b1e1e] border-[#8b1e1e] shadow-[0_8px_18px_rgba(139,30,30,0.22)]' : 'border-[#ddd]'
+                        className={`relative grid place-items-center min-h-[48px] border rounded-[14px] cursor-pointer transition-[transform,border-color,background,box-shadow] duration-150 select-none hover:-translate-y-[1px] hover:border-[rgba(139,30,30,0.45)] hover:shadow-[0_4px_12px_rgba(139,30,30,0.12)] ${
+                          giftScores[qId] === num ? 'bg-[#8b1e1e] border-[#8b1e1e] shadow-[0_8px_18px_rgba(139,30,30,0.22)]' : 'bg-[#fafafa] border-[#ddd]'
                         }`}
                       >
                         <input type="radio" name={qId} value={num} className="absolute opacity-0 pointer-events-none" checked={giftScores[qId] === num} onChange={() => setGiftScores(p => ({ ...p, [qId]: num }))} />
@@ -464,8 +464,8 @@ export default function AssessmentForm() {
                 {[1, 2, 3, 4, 5].map(num => (
                   <label
                     key={num}
-                    className={`relative grid place-items-center min-h-[48px] border rounded-[14px] cursor-pointer bg-[#fafafa] transition-[transform,border-color,background,box-shadow] duration-150 select-none hover:-translate-y-[1px] hover:border-[rgba(139,30,30,0.45)] hover:shadow-[0_4px_12px_rgba(139,30,30,0.12)] ${
-                      ministryScores[id] === num ? 'bg-[#8b1e1e] border-[#8b1e1e] shadow-[0_8px_18px_rgba(139,30,30,0.22)]' : 'border-[#ddd]'
+                    className={`relative grid place-items-center min-h-[48px] border rounded-[14px] cursor-pointer transition-[transform,border-color,background,box-shadow] duration-150 select-none hover:-translate-y-[1px] hover:border-[rgba(139,30,30,0.45)] hover:shadow-[0_4px_12px_rgba(139,30,30,0.12)] ${
+                      ministryScores[id] === num ? 'bg-[#8b1e1e] border-[#8b1e1e] shadow-[0_8px_18px_rgba(139,30,30,0.22)]' : 'bg-[#fafafa] border-[#ddd]'
                     }`}
                   >
                     <input type="radio" name={id} value={num} className="absolute opacity-0 pointer-events-none" checked={ministryScores[id] === num} onChange={() => setMinistryScores(p => ({ ...p, [id]: num }))} />
