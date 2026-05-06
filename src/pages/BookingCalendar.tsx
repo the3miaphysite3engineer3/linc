@@ -36,19 +36,19 @@ function hourToTime(h: number): string {
   return `${String(hour).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
 }
 
-interface BusyBlock {
+interface ScheduleBlock {
   date: string;
   startHour: number;
   endHour: number;
   title: string;
-  type: 'meeting' | 'unavailable';
+  type: 'meeting' | 'available' | 'unavailable';
 }
 
 export default function BookingCalendar() {
   const { t, dir, locale } = useI18n();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDay, setSelectedDay] = useState<Date | null>(null);
-  const [busyBlocks, setBusyBlocks] = useState<BusyBlock[]>([]);
+  const [scheduleBlocks, setScheduleBlocks] = useState<ScheduleBlock[]>([]);
   const [selectedSlot, setSelectedSlot] = useState<number | null>(null);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -60,47 +60,72 @@ export default function BookingCalendar() {
   const [pastors, setPastors] = useState<string[]>([]);
 
   useEffect(() => {
-    const meetingsRef = ref(database, 'meetings/');
-    onValue(meetingsRef, (snapshot) => {
-      const data = snapshot.val();
-      const blocks: BusyBlock[] = [];
+    const availabilityRef = ref(database, 'availability/');
 
-      if (data) {
-        Object.values(data).forEach((val: any) => {
-          if (val.date && val.startTime && val.endTime) {
+    onValue(availabilityRef, (availabilitySnapshot) => {
+      const availabilityData = availabilitySnapshot.val();
+      const blocks: ScheduleBlock[] = [];
+
+      if (availabilityData) {
+        Object.values(availabilityData).forEach((val: any) => {
+          if (val.date) {
+            const startTime = val.startTime || '09:00';
+            const endTime = val.endTime || '20:00';
+
             blocks.push({
               date: val.date,
-              startHour: timeToHour(val.startTime),
-              endHour: timeToHour(val.endTime),
-              title: 'Booked',
-              type: 'meeting',
+              startHour: timeToHour(startTime),
+              endHour: timeToHour(endTime),
+              title: val.reason || 'Available',
+              type: 'available',
             });
           }
         });
       }
 
-      const unavailabilityRef = ref(database, 'unavailability/');
-      onValue(unavailabilityRef, (snap) => {
-        const uData = snap.val();
+      const meetingsRef = ref(database, 'meetings/');
+      onValue(meetingsRef, (meetingsSnapshot) => {
+        const meetingsData = meetingsSnapshot.val();
+        const blocksWithMeetings = [...blocks];
 
-        if (uData) {
-          Object.values(uData).forEach((val: any) => {
-            if (val.date) {
-              const startTime = val.startTime || '00:00';
-              const endTime = val.endTime || '23:59';
-
-              blocks.push({
+        if (meetingsData) {
+          Object.values(meetingsData).forEach((val: any) => {
+            if (val.date && val.startTime && val.endTime) {
+              blocksWithMeetings.push({
                 date: val.date,
-                startHour: timeToHour(startTime),
-                endHour: timeToHour(endTime),
-                title: val.reason || 'Unavailable',
-                type: 'unavailable',
+                startHour: timeToHour(val.startTime),
+                endHour: timeToHour(val.endTime),
+                title: 'Booked',
+                type: 'meeting',
               });
             }
           });
         }
 
-        setBusyBlocks(blocks);
+        const unavailabilityRef = ref(database, 'unavailability/');
+        onValue(unavailabilityRef, (unavailabilitySnapshot) => {
+          const unavailabilityData = unavailabilitySnapshot.val();
+          const finalBlocks = [...blocksWithMeetings];
+
+          if (unavailabilityData) {
+            Object.values(unavailabilityData).forEach((val: any) => {
+              if (val.date) {
+                const startTime = val.startTime || '00:00';
+                const endTime = val.endTime || '23:59';
+
+                finalBlocks.push({
+                  date: val.date,
+                  startHour: timeToHour(startTime),
+                  endHour: timeToHour(endTime),
+                  title: val.reason || 'Unavailable',
+                  type: 'unavailable',
+                });
+              }
+            });
+          }
+
+          setScheduleBlocks(finalBlocks);
+        });
       });
     });
   }, []);
@@ -133,18 +158,50 @@ export default function BookingCalendar() {
     end: endOfMonth(currentDate),
   });
 
-  const getDayBlocks = (day: Date): BusyBlock[] => {
+  const getDayBlocks = (day: Date): ScheduleBlock[] => {
     const dayStr = format(day, 'yyyy-MM-dd');
-    return busyBlocks.filter(b => b.date === dayStr);
+    return scheduleBlocks.filter(b => b.date === dayStr);
+  };
+
+  const isSlotInsideAvailability = (day: Date, hour: number): boolean => {
+    const dayStr = format(day, 'yyyy-MM-dd');
+
+    return scheduleBlocks.some(b =>
+      b.date === dayStr &&
+      b.type === 'available' &&
+      hour >= b.startHour &&
+      hour + SLOT_DURATION <= b.endHour
+    );
+  };
+
+  const isSlotUnavailable = (day: Date, hour: number): boolean => {
+    const dayStr = format(day, 'yyyy-MM-dd');
+
+    return scheduleBlocks.some(b =>
+      b.date === dayStr &&
+      b.type === 'unavailable' &&
+      hour >= b.startHour &&
+      hour < b.endHour
+    );
   };
 
   const isSlotBooked = (day: Date, hour: number): boolean => {
     const dayStr = format(day, 'yyyy-MM-dd');
-    return busyBlocks.some(b => b.date === dayStr && hour >= b.startHour && hour < b.endHour);
+
+    return scheduleBlocks.some(b =>
+      b.date === dayStr &&
+      b.type === 'meeting' &&
+      hour >= b.startHour &&
+      hour < b.endHour
+    );
   };
 
   const isSlotInfeasible = (day: Date, hour: number): boolean => {
     if (hour < BUSINESS_START || hour >= BUSINESS_END) return true;
+
+    if (!isSlotInsideAvailability(day, hour)) return true;
+
+    if (isSlotUnavailable(day, hour)) return true;
 
     const dayStr = format(day, 'yyyy-MM-dd');
     const todayStr = format(new Date(), 'yyyy-MM-dd');
@@ -177,6 +234,8 @@ export default function BookingCalendar() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedDay || selectedSlot === null) return;
+
+    if (isSlotBooked(selectedDay, selectedSlot) || isSlotInfeasible(selectedDay, selectedSlot)) return;
 
     setLoading(true);
 
@@ -225,7 +284,7 @@ export default function BookingCalendar() {
     return 'available';
   };
 
-  const daySlots = selectedDay ? busyBlocks.filter(b => b.date === format(selectedDay, 'yyyy-MM-dd')) : [];
+  const daySlots = selectedDay ? scheduleBlocks.filter(b => b.date === format(selectedDay, 'yyyy-MM-dd')) : [];
 
   const numberOfSlots = Math.floor((BUSINESS_END - BUSINESS_START) / SLOT_DURATION);
 
@@ -276,9 +335,13 @@ export default function BookingCalendar() {
           ))}
           {days.map(day => {
             const dayBlocks = getDayBlocks(day);
+            const visibleDayBlocks = dayBlocks.filter(b => b.type !== 'available');
+            const availabilityBlocks = dayBlocks.filter(b => b.type === 'available');
             const isPast = isBefore(startOfDay(day), startOfDay(new Date()));
             const isSelected = selectedDay && isSameDay(day, selectedDay);
             const today = isToday(day);
+            const hasAvailability = availabilityBlocks.length > 0;
+
             return (
               <button
                 key={day.toISOString()}
@@ -291,14 +354,22 @@ export default function BookingCalendar() {
                     ? 'bg-[#8b1e1e] border-[#8b1e1e] text-white shadow-lg'
                     : today
                     ? 'bg-green-50 border-green-300 text-[#8b1e1e] font-bold'
-                    : 'bg-white border-gray-200 hover:border-[#8b1e1e]/30 hover:bg-stone-50'
+                    : hasAvailability
+                    ? 'bg-green-50 border-green-200 hover:border-[#8b1e1e]/30 hover:bg-stone-50'
+                    : 'bg-red-50 border-red-100 text-gray-400 hover:border-[#8b1e1e]/30'
                 }`}
               >
                 <div className={`text-sm font-bold ${isSelected ? 'text-white' : ''}`}>{format(day, 'd')}</div>
                 {isPast && <div className="text-[8px] text-gray-300 mt-1">✕</div>}
-                {!isPast && dayBlocks.length > 0 && (
+                {!isPast && !hasAvailability && (
+                  <div className="text-[8px] text-red-400 mt-1">Unavailable</div>
+                )}
+                {!isPast && hasAvailability && (
+                  <div className={`text-[8px] mt-1 ${isSelected ? 'text-white/80' : 'text-green-600'}`}>Available</div>
+                )}
+                {!isPast && visibleDayBlocks.length > 0 && (
                   <div className="flex flex-col gap-0.5 mt-1 flex-1 justify-end">
-                    {dayBlocks.slice(0, 2).map((b, i) => (
+                    {visibleDayBlocks.slice(0, 2).map((b, i) => (
                       <div key={i} className={`text-[8px] px-1 py-0.5 rounded truncate ${
                         b.type === 'unavailable'
                           ? (isSelected ? 'bg-white/20 text-white/80' : 'bg-red-100 text-red-600')
@@ -307,8 +378,8 @@ export default function BookingCalendar() {
                         {b.title}
                       </div>
                     ))}
-                    {dayBlocks.length > 2 && (
-                      <div className={`text-[8px] ${isSelected ? 'text-white/60' : 'text-gray-400'}`}>+{dayBlocks.length - 2} more</div>
+                    {visibleDayBlocks.length > 2 && (
+                      <div className={`text-[8px] ${isSelected ? 'text-white/60' : 'text-gray-400'}`}>+{visibleDayBlocks.length - 2} more</div>
                     )}
                   </div>
                 )}
@@ -333,23 +404,32 @@ export default function BookingCalendar() {
               <div className="mb-6 bg-stone-50 rounded-xl p-4 border border-gray-100">
                 <div className="flex items-center gap-2 mb-3">
                   <Ban size={14} className="text-red-500" />
-                  <span className="text-xs font-bold text-gray-500 uppercase tracking-widest">Blocked Slots</span>
+                  <span className="text-xs font-bold text-gray-500 uppercase tracking-widest">Schedule Blocks</span>
                 </div>
                 <div className="space-y-2">
                   {daySlots.map((slot, i) => (
                     <div key={i} className={`flex items-center justify-between px-3 py-2 rounded-lg text-xs font-bold ${
-                      slot.type === 'unavailable'
+                      slot.type === 'available'
+                        ? 'bg-green-100 text-green-700 border border-green-200'
+                        : slot.type === 'unavailable'
                         ? 'bg-red-100 text-red-700 border border-red-200'
                         : 'bg-amber-100 text-amber-700 border border-amber-200'
                     }`}>
                       <div className="flex items-center gap-2">
-                        {slot.type === 'unavailable' ? <Ban size={12} /> : <CalendarIcon size={12} />}
+                        {slot.type === 'available' ? <CheckCircle size={12} /> : slot.type === 'unavailable' ? <Ban size={12} /> : <CalendarIcon size={12} />}
                         <span>{slot.title}</span>
                       </div>
                       <span className="opacity-75">{hourToTime(slot.startHour)} - {hourToTime(slot.endHour)}</span>
                     </div>
                   ))}
                 </div>
+              </div>
+            )}
+
+            {daySlots.filter(slot => slot.type === 'available').length === 0 && (
+              <div className="mb-6 bg-red-50 rounded-xl p-4 border border-red-100 text-center">
+                <AlertCircle size={22} className="text-red-500 mx-auto mb-2" />
+                <p className="text-red-600 font-bold text-sm">No availability has been opened for this day.</p>
               </div>
             )}
 
