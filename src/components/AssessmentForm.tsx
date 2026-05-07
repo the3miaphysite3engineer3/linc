@@ -281,7 +281,9 @@ export default function AssessmentForm() {
           l.callingVision, ssep, visionLines.join('\n\n'),
         ].join('\n');
 
-        for (const recipientEmail of RESULT_EMAIL_RECIPIENTS) {
+        const resultEmailRecipients = [...RESULT_EMAIL_RECIPIENTS, trainee.email.trim()];
+
+        for (const recipientEmail of resultEmailRecipients) {
           try {
             await sendEmailViaEmailJS(recipientEmail, {
               fullName: trainee.fullName,
