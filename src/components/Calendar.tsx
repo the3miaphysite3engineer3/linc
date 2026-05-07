@@ -376,6 +376,14 @@ export default function Calendar() {
     return (meeting as any).requestReason || '';
   };
 
+  const openMeetingEditor = (meeting: Meeting) => {
+    setEditingMeeting(meeting);
+    setNewMeeting({ ...meeting });
+    setSelectedParticipants(meeting.participantIds || []);
+    setEmailSent(false);
+    setIsAddOpen(true);
+  };
+
   const toggleParticipant = (id: string) => {
     setSelectedParticipants(prev =>
       prev.includes(id) ? prev.filter(p => p !== id) : [...prev, id]
@@ -424,7 +432,15 @@ export default function Calendar() {
     setEmailSent(false);
 
     try {
-      const meetingData = {
+      const startHour = timeToHour(newMeeting.startTime || '00:00');
+      const endHour = timeToHour(newMeeting.endTime || '00:00');
+
+      if (endHour <= startHour) {
+        alert(displayLocale === 'ar' ? 'وقت النهاية يجب أن يكون بعد وقت البداية.' : 'End time must be after start time.');
+        return;
+      }
+
+      const meetingData: Record<string, any> = {
         title: newMeeting.title || '',
         date: newMeeting.date || '',
         startTime: newMeeting.startTime || '',
@@ -437,8 +453,27 @@ export default function Calendar() {
       };
 
       if (editingMeeting) {
-        const updateRef = ref(database, `meetings/${editingMeeting.id}`);
-        await import('firebase/database').then(({ update }) => update(updateRef, meetingData));
+        const requestFieldsToPreserve = ['requestName', 'requestEmail', 'requestReason', 'sourceRequestId'];
+
+        requestFieldsToPreserve.forEach(field => {
+          const value = (editingMeeting as any)[field];
+          if (value !== undefined && value !== null && value !== '') {
+            meetingData[field] = value;
+          }
+        });
+
+        const { update } = await import('firebase/database');
+        await update(ref(database, `meetings/${editingMeeting.id}`), meetingData);
+
+        const sourceRequestId = (editingMeeting as any).sourceRequestId;
+        if (sourceRequestId) {
+          await update(ref(database, `meetingRequests/${sourceRequestId}`), {
+            date: meetingData.date,
+            startTime: meetingData.startTime,
+            endTime: meetingData.endTime,
+            updatedAt: Date.now(),
+          });
+        }
       } else {
         const { push } = await import('firebase/database');
         await push(ref(database, 'meetings/'), meetingData);
@@ -1218,10 +1253,7 @@ Otherwise, provide a helpful response about their calendar.`;
                     key={m.id}
                     onClick={(e) => {
                       e.stopPropagation();
-                      setEditingMeeting(m);
-                      setNewMeeting(m);
-                      setSelectedParticipants(m.participantIds || []);
-                      setIsAddOpen(true);
+                      openMeetingEditor(m);
                     }}
                     className="p-2 bg-stone-50 rounded-lg text-[10px] cursor-pointer group hover:bg-[#8B1E1E] transition-colors"
                   >
@@ -1309,7 +1341,11 @@ Otherwise, provide a helpful response about their calendar.`;
             const requestReason = getMeetingRequestReason(m);
 
             return (
-              <div key={m.id} className="flex flex-col md:flex-row md:items-center justify-between p-6 bg-stone-50 rounded-2xl border border-gray-100 hover:border-[#8B1E1E]/20 transition-all gap-4">
+              <div
+                key={m.id}
+                onClick={() => openMeetingEditor(m)}
+                className="flex flex-col md:flex-row md:items-center justify-between p-6 bg-stone-50 rounded-2xl border border-gray-100 hover:border-[#8B1E1E]/20 transition-all gap-4 cursor-pointer"
+              >
                 <div className="flex items-center gap-6">
                   <div className="w-16 h-16 bg-white rounded-xl shadow-sm flex flex-col items-center justify-center border border-gray-100">
                     <span className="text-[10px] uppercase font-bold text-gray-400">{format(parseISO(m.date), 'MMM', { locale: dateLocale })}</span>
@@ -1330,11 +1366,23 @@ Otherwise, provide a helpful response about their calendar.`;
                 </div>
                 <div className="flex items-center gap-3 self-end md:self-auto">
                   {m.meetLink && (
-                    <a href={m.meetLink} target="_blank" rel="noopener noreferrer" className="p-3 bg-blue-50 text-blue-600 rounded-xl hover:bg-blue-100 transition-colors">
+                    <a
+                      href={m.meetLink}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={(e) => e.stopPropagation()}
+                      className="p-3 bg-blue-50 text-blue-600 rounded-xl hover:bg-blue-100 transition-colors"
+                    >
                       <Video size={18} />
                     </a>
                   )}
-                  <button onClick={() => handleDelete(m.id!)} className="p-3 bg-red-50 text-red-600 rounded-xl hover:bg-red-100 transition-colors">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDelete(m.id!);
+                    }}
+                    className="p-3 bg-red-50 text-red-600 rounded-xl hover:bg-red-100 transition-colors"
+                  >
                     <Trash2 size={18} />
                   </button>
                 </div>
