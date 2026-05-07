@@ -149,8 +149,18 @@ export function generatePlaceholderLink(): string {
 }
 
 export const EMAILJS_SERVICE_ID = 'service_v47g6or';
-export const EMAILJS_TEMPLATE_ID = 'template_a0iy1xy';
+export const EMAILJS_ASSESSMENT_TEMPLATE_ID = 'template_a0iy1xy';
+export const EMAILJS_MEETING_CONFIRMATION_TEMPLATE_ID = 'template_lj_bsqy';
+export const EMAILJS_TEMPLATE_ID = EMAILJS_ASSESSMENT_TEMPLATE_ID;
 export const EMAILJS_PUBLIC_KEY = 'x_Xx3UHe3-yE1I13_';
+
+function resolveEmailJSTemplateId(params: Record<string, string>): string {
+  if (params.messageType === 'Meeting Confirmation') {
+    return EMAILJS_MEETING_CONFIRMATION_TEMPLATE_ID;
+  }
+
+  return EMAILJS_ASSESSMENT_TEMPLATE_ID;
+}
 
 export async function sendEmailViaEmailJS(
   to: string,
@@ -159,9 +169,26 @@ export async function sendEmailViaEmailJS(
   const emailjs = await import('@emailjs/browser');
   await emailjs.send(
     EMAILJS_SERVICE_ID,
-    EMAILJS_TEMPLATE_ID,
+    resolveEmailJSTemplateId(params),
     {
       to_email: to,
+      ...params,
+    },
+    EMAILJS_PUBLIC_KEY
+  );
+}
+
+export async function sendMeetingConfirmationViaEmailJS(
+  to: string,
+  params: Record<string, string>
+): Promise<void> {
+  const emailjs = await import('@emailjs/browser');
+  await emailjs.send(
+    EMAILJS_SERVICE_ID,
+    EMAILJS_MEETING_CONFIRMATION_TEMPLATE_ID,
+    {
+      to_email: to,
+      messageType: 'Meeting Confirmation',
       ...params,
     },
     EMAILJS_PUBLIC_KEY
