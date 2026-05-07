@@ -381,42 +381,74 @@ export default function Calendar() {
     return Boolean((meeting as any).acknowledged);
   };
 
-  const buildMeetingConfirmationEmail = (meeting: Meeting): { subject: string; fullReport: string } => {
-    const name = (meeting as any).requestName || t('calendar.meeting');
+  const buildMeetingConfirmationEmail = (meeting: Meeting): {
+    subject: string;
+    requesterName: string;
+    meetingTitle: string;
+    meetingDateAr: string;
+    meetingDateEn: string;
+    meetingTimeAr: string;
+    meetingTimeEn: string;
+    meetingLocationAr: string;
+    meetingLocationEn: string;
+    meetingLink: string;
+    meetingConfirmation: string;
+  } => {
+    const requesterName = (meeting as any).requestName || '';
+    const displayName = requesterName || (displayLocale === 'ar' ? 'صديقنا العزيز' : 'Friend');
+    const meetingTitle = getMeetingDisplayTitle(meeting) || t('calendar.meetingWithPastor');
     const dateTextEn = meeting.date ? format(parseISO(meeting.date), 'EEEE, MMMM d, yyyy', { locale: enUS }) : '';
     const dateTextAr = meeting.date ? format(parseISO(meeting.date), 'EEEE, MMMM d, yyyy', { locale: ar }) : '';
     const timeTextEn = timeRangeToLabel(meeting.startTime, meeting.endTime, 'en');
     const timeTextAr = timeRangeToLabel(meeting.startTime, meeting.endTime, 'ar');
     const meetingLink = meeting.meetLink || '';
-    const location = meeting.location || '';
+    const locationTextEn = meeting.location || 'Online meeting';
+    const locationTextAr = meeting.location || 'اجتماع عبر الإنترنت';
 
-    const fullReport = [
-      `مرحباً ${name}،`,
+    const meetingConfirmation = [
+      'تأكيد موعد الاجتماع',
+      '=========================================',
       '',
-      'نود تأكيد موعد اجتماعك بالتفاصيل التالية:',
+      `مرحباً ${displayName}،`,
+      '',
+      'نود تأكيد موعد اجتماعك مع القس بالتفاصيل التالية:',
+      `نوع الاجتماع: اجتماع مع القس`,
       `التاريخ: ${dateTextAr}`,
       `الوقت: ${timeTextAr}`,
-      location ? `المكان: ${location}` : '',
+      `المكان: ${locationTextAr}`,
       meetingLink ? `رابط الانضمام: ${meetingLink}` : 'رابط الانضمام: سيتم إرساله لاحقاً.',
       '',
       'شكراً لك، ونتطلع إلى لقائك.',
       '',
       '=========================================',
       '',
-      `Hi ${name},`,
+      'Meeting Confirmation',
+      '=========================================',
       '',
-      'We would like to confirm your meeting at the following time:',
+      `Hi ${displayName},`,
+      '',
+      'We would like to confirm your meeting with Pastor at the following time:',
+      'Meeting type: Meeting with Pastor',
       `Date: ${dateTextEn}`,
       `Time: ${timeTextEn}`,
-      location ? `Location: ${location}` : '',
+      `Location: ${locationTextEn}`,
       meetingLink ? `Here is the link for joining: ${meetingLink}` : 'The joining link will be sent later.',
       '',
       'Thank you, and we look forward to meeting with you.',
-    ].filter(line => line !== '').join('\n');
+    ].join('\n');
 
     return {
       subject: 'تأكيد موعد الاجتماع / Meeting Confirmation',
-      fullReport,
+      requesterName: displayName,
+      meetingTitle,
+      meetingDateAr: dateTextAr,
+      meetingDateEn: dateTextEn,
+      meetingTimeAr: timeTextAr,
+      meetingTimeEn: timeTextEn,
+      meetingLocationAr: locationTextAr,
+      meetingLocationEn: locationTextEn,
+      meetingLink,
+      meetingConfirmation,
     };
   };
 
@@ -609,15 +641,25 @@ export default function Calendar() {
     setLoading(true);
 
     try {
-      const { subject, fullReport } = buildMeetingConfirmationEmail(meeting);
+      const confirmationEmail = buildMeetingConfirmationEmail(meeting);
 
       await sendEmailViaEmailJS(recipientEmail, {
-        subject,
-        fullName: (meeting as any).requestName || '',
-        meetingDate: meeting.date || '',
-        meetingTime: timeRangeToLabel(meeting.startTime, meeting.endTime, displayLocale),
-        meetLink: meeting.meetLink || '',
-        fullReport,
+        subject: confirmationEmail.subject,
+        fullName: confirmationEmail.requesterName,
+        emailTitle: 'تأكيد موعد الاجتماع / Meeting Confirmation',
+        reportTitle: 'تأكيد موعد الاجتماع / Meeting Confirmation',
+        messageType: 'Meeting Confirmation',
+        meetingTitle: confirmationEmail.meetingTitle,
+        meetingWith: 'Pastor',
+        meetingDateArabic: confirmationEmail.meetingDateAr,
+        meetingDateEnglish: confirmationEmail.meetingDateEn,
+        meetingTimeArabic: confirmationEmail.meetingTimeAr,
+        meetingTimeEnglish: confirmationEmail.meetingTimeEn,
+        meetingLocationArabic: confirmationEmail.meetingLocationAr,
+        meetingLocationEnglish: confirmationEmail.meetingLocationEn,
+        meetLink: confirmationEmail.meetingLink,
+        meetingConfirmation: confirmationEmail.meetingConfirmation,
+        fullReport: confirmationEmail.meetingConfirmation,
       });
 
       const { update } = await import('firebase/database');
@@ -667,15 +709,25 @@ export default function Calendar() {
         const recipientEmail = getMeetingRequestEmail(meeting);
 
         try {
-          const { subject, fullReport } = buildMeetingConfirmationEmail(meeting);
+          const confirmationEmail = buildMeetingConfirmationEmail(meeting);
 
           await sendEmailViaEmailJS(recipientEmail, {
-            subject,
-            fullName: (meeting as any).requestName || '',
-            meetingDate: meeting.date || '',
-            meetingTime: timeRangeToLabel(meeting.startTime, meeting.endTime, displayLocale),
-            meetLink: meeting.meetLink || '',
-            fullReport,
+            subject: confirmationEmail.subject,
+            fullName: confirmationEmail.requesterName,
+            emailTitle: 'تأكيد موعد الاجتماع / Meeting Confirmation',
+            reportTitle: 'تأكيد موعد الاجتماع / Meeting Confirmation',
+            messageType: 'Meeting Confirmation',
+            meetingTitle: confirmationEmail.meetingTitle,
+            meetingWith: 'Pastor',
+            meetingDateArabic: confirmationEmail.meetingDateAr,
+            meetingDateEnglish: confirmationEmail.meetingDateEn,
+            meetingTimeArabic: confirmationEmail.meetingTimeAr,
+            meetingTimeEnglish: confirmationEmail.meetingTimeEn,
+            meetingLocationArabic: confirmationEmail.meetingLocationAr,
+            meetingLocationEnglish: confirmationEmail.meetingLocationEn,
+            meetLink: confirmationEmail.meetingLink,
+            meetingConfirmation: confirmationEmail.meetingConfirmation,
+            fullReport: confirmationEmail.meetingConfirmation,
           });
 
           await update(ref(database, `meetings/${meeting.id}`), {
