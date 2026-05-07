@@ -15,7 +15,7 @@ import {
   storeTokens,
   clearTokens,
   sendGmailEmail,
-  sendEmailViaEmailJS,
+  sendMeetingConfirmationViaEmailJS,
   type GmailTokens,
 } from '../services/gmail';
 import PageTitle from './PageTitle';
@@ -643,7 +643,7 @@ export default function Calendar() {
     try {
       const confirmationEmail = buildMeetingConfirmationEmail(meeting);
 
-      await sendEmailViaEmailJS(recipientEmail, {
+      await sendMeetingConfirmationViaEmailJS(recipientEmail, {
         subject: confirmationEmail.subject,
         fullName: confirmationEmail.requesterName,
         emailTitle: 'تأكيد موعد الاجتماع / Meeting Confirmation',
@@ -711,7 +711,7 @@ export default function Calendar() {
         try {
           const confirmationEmail = buildMeetingConfirmationEmail(meeting);
 
-          await sendEmailViaEmailJS(recipientEmail, {
+          await sendMeetingConfirmationViaEmailJS(recipientEmail, {
             subject: confirmationEmail.subject,
             fullName: confirmationEmail.requesterName,
             emailTitle: 'تأكيد موعد الاجتماع / Meeting Confirmation',
