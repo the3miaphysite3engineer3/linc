@@ -360,10 +360,10 @@ export default function Calendar() {
     const requestName = (meeting as any).requestName;
 
     if (requestName) {
-      return `Meeting with ${requestName}`;
+      return `${t('calendar.meetingWith')} ${requestName}`;
     }
 
-    return meeting.title || 'Meeting';
+    return meeting.title || t('calendar.meeting');
   };
 
   const getMeetingRequestEmail = (meeting: Meeting): string => {
@@ -740,7 +740,7 @@ Otherwise, provide a helpful response about their calendar.`;
           let meetLink = generatePlaceholderLink();
           if (googleTokens) {
             try {
-              const created = await createCalendarMeetLink(googleTokens, `Meeting with ${req.name}`, req.date, req.startTime, req.endTime);
+              const created = await createCalendarMeetLink(googleTokens, `${t('calendar.meetingWith')} ${req.name}`, req.date, req.startTime, req.endTime);
               meetLink = created.meetLink;
             } catch (err) {
               console.error('Failed to create real Meet link, using placeholder:', err);
@@ -749,7 +749,7 @@ Otherwise, provide a helpful response about their calendar.`;
 
           const { push } = await import('firebase/database');
           await push(ref(database, 'meetings/'), {
-            title: 'Meeting with Pastor',
+            title: t('calendar.meetingWithPastor'),
             date: req.date,
             startTime: req.startTime,
             endTime: req.endTime,
@@ -775,7 +775,7 @@ Otherwise, provide a helpful response about their calendar.`;
                   <p style="color:#333;font-size:15px;">Dear ${req.name},</p>
                   <p style="color:#555;font-size:14px;">${t('booking.acceptedEmailBody')}</p>
                   <div style="background:white;padding:16px;border-radius:14px;border:1px solid #e5e5e5;margin-bottom:16px;">
-                    <p style="margin:4px 0;font-size:14px;"><strong>Meeting:</strong> Meeting with Pastor</p>
+                    <p style="margin:4px 0;font-size:14px;"><strong>${t('calendar.meeting')}:</strong> ${t('calendar.meetingWithPastor')}</p>
                     <p style="margin:4px 0;font-size:14px;"><strong>Date:</strong> ${format(parseISO(req.date), 'EEEE, MMMM d, yyyy')}</p>
                     <p style="margin:4px 0;font-size:14px;"><strong>Time:</strong> ${timeRangeToLabel(req.startTime, req.endTime, displayLocale)}</p>
                     ${req.reason ? `<p style="margin:4px 0;font-size:14px;"><strong>Reason:</strong> ${req.reason}</p>` : ''}
@@ -1475,7 +1475,7 @@ Otherwise, provide a helpful response about their calendar.`;
                         onClick={async () => {
                           setLoading(true);
                           try {
-                            const { meetLink } = await createCalendarMeetLink(googleTokens, newMeeting.title || 'Meeting', newMeeting.date || '', newMeeting.startTime || '', newMeeting.endTime || '');
+                            const { meetLink } = await createCalendarMeetLink(googleTokens, newMeeting.title || t('calendar.meeting'), newMeeting.date || '', newMeeting.startTime || '', newMeeting.endTime || '');
                             setNewMeeting(p => ({ ...p, meetLink }));
                           } catch (err: any) {
                             alert(err.message || t('calendar.failedMeet'));
