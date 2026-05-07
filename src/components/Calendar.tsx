@@ -635,6 +635,73 @@ export default function Calendar() {
     }
   };
 
+  const handleSendAllMeetingConfirmations = async () => {
+    const confirmableMeetings = meetings.filter(meeting =>
+      meeting.id &&
+      getMeetingRequestEmail(meeting) &&
+      !getMeetingAcknowledged(meeting)
+    );
+
+    if (confirmableMeetings.length === 0) {
+      alert(displayLocale === 'ar' ? 'لا توجد اجتماعات مؤكدة بانتظار إرسال التأكيد.' : 'There are no confirmed meetings waiting for confirmation email.');
+      return;
+    }
+
+    const shouldSend = confirm(
+      displayLocale === 'ar'
+        ? `سيتم إرسال تأكيد إلى ${confirmableMeetings.length} اجتماع/اجتماعات. هل تريد المتابعة؟`
+        : `Send confirmation emails for ${confirmableMeetings.length} confirmed meeting(s)?`
+    );
+
+    if (!shouldSend) return;
+
+    setLoading(true);
+
+    let sentCount = 0;
+    let failedCount = 0;
+
+    try {
+      const { update } = await import('firebase/database');
+
+      for (const meeting of confirmableMeetings) {
+        const recipientEmail = getMeetingRequestEmail(meeting);
+
+        try {
+          const { subject, fullReport } = buildMeetingConfirmationEmail(meeting);
+
+          await sendEmailViaEmailJS(recipientEmail, {
+            subject,
+            fullName: (meeting as any).requestName || '',
+            meetingDate: meeting.date || '',
+            meetingTime: timeRangeToLabel(meeting.startTime, meeting.endTime, displayLocale),
+            meetLink: meeting.meetLink || '',
+            fullReport,
+          });
+
+          await update(ref(database, `meetings/${meeting.id}`), {
+            acknowledged: true,
+            acknowledgedAt: Date.now(),
+            acknowledgedEmail: recipientEmail,
+            updatedAt: Date.now(),
+          });
+
+          sentCount += 1;
+        } catch (err) {
+          failedCount += 1;
+          console.error(`Failed to send meeting confirmation to ${recipientEmail}:`, err);
+        }
+      }
+
+      alert(
+        displayLocale === 'ar'
+          ? `تم إرسال ${sentCount} تأكيد. فشل ${failedCount}.`
+          : `Sent ${sentCount} confirmation email(s). Failed: ${failedCount}.`
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleCreateAvailability = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -1068,6 +1135,11 @@ Otherwise, provide a helpful response about their calendar.`;
     .map(p => p.name);
 
   const availabilityDateCount = buildAvailabilityDates().length;
+  const pendingConfirmationCount = meetings.filter(meeting =>
+    meeting.id &&
+    getMeetingRequestEmail(meeting) &&
+    !getMeetingAcknowledged(meeting)
+  ).length;
 
   return (
     <div className="space-y-8" style={{ fontFamily: 'Arial, sans-serif' }} dir={dir}>
@@ -1408,10 +1480,22 @@ Otherwise, provide a helpful response about their calendar.`;
       )}
 
       <section className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100">
-        <h3 className="text-xl font-bold mb-6 flex items-center gap-2 text-[#8B1E1E]">
-          <Clock size={20} />
-          {t('calendar.upcoming')}
-        </h3>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
+          <h3 className="text-xl font-bold flex items-center gap-2 text-[#8B1E1E]">
+            <Clock size={20} />
+            {t('calendar.upcoming')}
+          </h3>
+          <button
+            type="button"
+            onClick={handleSendAllMeetingConfirmations}
+            disabled={loading || pendingConfirmationCount === 0}
+            className="px-5 py-3 bg-green-50 text-green-700 rounded-xl hover:bg-green-100 transition-colors text-xs font-bold border border-green-100 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {displayLocale === 'ar'
+              ? `إرسال التأكيد للجميع (${pendingConfirmationCount})`
+              : `Send confirmation to all (${pendingConfirmationCount})`}
+          </button>
+        </div>
         <div className="space-y-4">
           {meetings.filter(m => {
             if (!m.date) return false;
