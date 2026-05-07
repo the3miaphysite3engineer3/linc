@@ -3,6 +3,7 @@ import { database } from '../firebase';
 import { ref, onValue } from 'firebase/database';
 import type { Meeting, MeetingRequest } from '../types';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, addMonths, subMonths, parseISO } from 'date-fns';
+import { ar, enUS } from 'date-fns/locale';
 import { Plus, Trash2, Video, MapPin, Clock, X, ChevronLeft, ChevronRight, Wand2, LogOut, Send, Users, Check, ChevronDown, Calendar as CalendarIcon, CheckCircle, XCircle, Hourglass, Mail, User, Bot } from 'lucide-react';
 import { motion } from 'motion/react';
 import {
@@ -122,6 +123,7 @@ interface UnavailabilityForm {
 export default function Calendar() {
   const { t, dir, locale } = useI18n();
   const displayLocale = locale === 'ar' ? 'ar' : 'en';
+  const dateLocale = displayLocale === 'ar' ? ar : enUS;
   const [currentDate, setCurrentDate] = useState(new Date());
   const [meetings, setMeetings] = useState<Meeting[]>([]);
   const [isAddOpen, setIsAddOpen] = useState(false);
@@ -397,7 +399,7 @@ export default function Calendar() {
           <p style="color: #555; font-size: 14px;">You are invited to attend the following meeting:</p>
           <div style="background: white; padding: 16px; border-radius: 14px; border: 1px solid #e5e5e5; margin-bottom: 16px;">
             <p style="margin: 4px 0; font-size: 14px;"><strong>Meeting:</strong> ${meetingData.title}</p>
-            <p style="margin: 4px 0; font-size: 14px;"><strong>Date:</strong> ${format(parseISO(meetingData.date), 'EEEE, MMMM d, yyyy')}</p>
+            <p style="margin: 4px 0; font-size: 14px;"><strong>Date:</strong> ${format(parseISO(meetingData.date), 'EEEE, MMMM d, yyyy', { locale: dateLocale })}</p>
             <p style="margin: 4px 0; font-size: 14px;"><strong>Time:</strong> ${timeRangeToLabel(meetingData.startTime, meetingData.endTime, displayLocale)}</p>
             <p style="margin: 4px 0; font-size: 14px;"><strong>Location:</strong> ${meetingData.location || 'TBA'}</p>
             ${meetingData.meetLink ? `<p style="margin: 4px 0; font-size: 14px;"><strong>Google Meet:</strong> <a href="${meetingData.meetLink}">${meetingData.meetLink}</a></p>` : ''}
@@ -776,7 +778,7 @@ Otherwise, provide a helpful response about their calendar.`;
                   <p style="color:#555;font-size:14px;">${t('booking.acceptedEmailBody')}</p>
                   <div style="background:white;padding:16px;border-radius:14px;border:1px solid #e5e5e5;margin-bottom:16px;">
                     <p style="margin:4px 0;font-size:14px;"><strong>${t('calendar.meeting')}:</strong> ${t('calendar.meetingWithPastor')}</p>
-                    <p style="margin:4px 0;font-size:14px;"><strong>Date:</strong> ${format(parseISO(req.date), 'EEEE, MMMM d, yyyy')}</p>
+                    <p style="margin:4px 0;font-size:14px;"><strong>Date:</strong> ${format(parseISO(req.date), 'EEEE, MMMM d, yyyy', { locale: dateLocale })}</p>
                     <p style="margin:4px 0;font-size:14px;"><strong>Time:</strong> ${timeRangeToLabel(req.startTime, req.endTime, displayLocale)}</p>
                     ${req.reason ? `<p style="margin:4px 0;font-size:14px;"><strong>Reason:</strong> ${req.reason}</p>` : ''}
                     ${meetLink ? `<p style="margin:8px 0;font-size:14px;"><strong>Google Meet:</strong> <a href="${meetLink}" style="color:#8b1e1e;font-weight:bold;">Join Meeting</a></p>` : ''}
@@ -954,7 +956,7 @@ Otherwise, provide a helpful response about their calendar.`;
 
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-white p-6 rounded-3xl shadow-sm border border-gray-100 gap-4">
         <div>
-          <h2 className="text-2xl font-bold text-[#1A1A1A]">{format(currentDate, 'MMMM yyyy')}</h2>
+          <h2 className="text-2xl font-bold text-[#1A1A1A]">{format(currentDate, 'MMMM yyyy', { locale: dateLocale })}</h2>
           <p className="text-xs text-gray-400 uppercase tracking-widest mt-1">
             {t('calendar.availabilityOpensBooking')}
           </p>
@@ -1239,7 +1241,7 @@ Otherwise, provide a helpful response about their calendar.`;
             <div>
               <h3 className="text-lg font-bold flex items-center gap-2 text-[#8B1E1E]">
                 <Clock size={18} />
-                {format(selectedSlotDay, 'EEEE, MMMM d, yyyy')}
+                {format(selectedSlotDay, 'EEEE, MMMM d, yyyy', { locale: dateLocale })}
               </h3>
               <p className="text-xs text-gray-400 uppercase tracking-widest mt-1">
                 {t('calendar.availabilityOpensBooking')}
@@ -1310,7 +1312,7 @@ Otherwise, provide a helpful response about their calendar.`;
               <div key={m.id} className="flex flex-col md:flex-row md:items-center justify-between p-6 bg-stone-50 rounded-2xl border border-gray-100 hover:border-[#8B1E1E]/20 transition-all gap-4">
                 <div className="flex items-center gap-6">
                   <div className="w-16 h-16 bg-white rounded-xl shadow-sm flex flex-col items-center justify-center border border-gray-100">
-                    <span className="text-[10px] uppercase font-bold text-gray-400">{format(parseISO(m.date), 'MMM')}</span>
+                    <span className="text-[10px] uppercase font-bold text-gray-400">{format(parseISO(m.date), 'MMM', { locale: dateLocale })}</span>
                     <span className="text-2xl font-bold text-[#8B1E1E] leading-none">{format(parseISO(m.date), 'dd')}</span>
                   </div>
                   <div>
@@ -1850,7 +1852,7 @@ Otherwise, provide a helpful response about their calendar.`;
                     )}
                     <p className="text-sm">{msg.content}</p>
                     <p className={`text-[10px] mt-1 ${msg.role === 'user' ? 'text-purple-200' : 'text-gray-400'}`}>
-                      {format(msg.timestamp, 'h:mm a')}
+                      {format(msg.timestamp, 'h:mm a', { locale: dateLocale })}
                     </p>
                   </div>
                 </div>
