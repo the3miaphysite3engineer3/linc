@@ -224,6 +224,9 @@ export const translations: Record<string, { en: string; ar: string }> = {
   'calendar.schedule': { en: "Pastor's Schedule", ar: 'جدول الراعي' },
   'calendar.noParticipants': { en: 'No participants available', ar: 'لا يوجد مشاركون متاحون' },
   'calendar.connectFirst': { en: 'Connect Google Calendar to send emails', ar: 'ربط تقويم Google لإرسال رسائل البريد الإلكتروني' },
+  'calendar.meeting': { en: 'Meeting', ar: 'اجتماع' },
+  'calendar.meetingWith': { en: 'Meeting with', ar: 'اجتماع مع' },
+  'calendar.meetingWithPastor': { en: 'Meeting with Pastor', ar: 'اجتماع مع الراعي' },
 
   // Calendar Availability / Unavailability
   'calendar.availabilityOpensBooking': { en: 'Availability opens booking. Unavailability closes booking.', ar: 'الإتاحة تفتح الحجز. عدم الإتاحة يغلق الحجز.' },
