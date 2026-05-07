@@ -4,7 +4,6 @@ import { ref, onValue, push } from 'firebase/database';
 import { motion, AnimatePresence } from 'motion/react';
 import { useI18n } from '../i18n';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, addMonths, subMonths, isToday, startOfDay, isBefore } from 'date-fns';
-import { ar, enUS } from 'date-fns/locale';
 import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Clock, CheckCircle, AlertCircle, User, Mail, MessageSquare, Ban, Bot, X } from 'lucide-react';
 import AIBookingAssistant from '../components/AIBookingAssistant';
 import { sendEmailViaEmailJS } from '../services/gmail';
@@ -13,40 +12,43 @@ const BUSINESS_START = 9;
 const BUSINESS_END = 20;
 const SLOT_DURATION = 0.5;
 
-type SlotStatus = 'booked' | 'infeasible' | 'available';
-
-function hourToLabel(hourValue: number, locale: 'en' | 'ar'): string {
+function hourToLabel(h: number, locale: 'en' | 'ar'): string {
   const isAr = locale === 'ar';
-  const hours = Math.floor(hourValue);
-  const minutes = Math.round((hourValue - hours) * 60);
-  const period = hours >= 12 ? (isAr ? 'م' : 'PM') : (isAr ? 'ص' : 'AM');
-  const hour12 = hours === 0 ? 12 : hours > 12 ? hours - 12 : hours;
-
+  const wholeHour = Math.floor(h);
+  const minutes = Math.round((h - wholeHour) * 60);
+  const period = wholeHour >= 12 ? (isAr ? 'م' : 'PM') : (isAr ? 'ص' : 'AM');
+  const hour12 = wholeHour === 0 ? 12 : wholeHour > 12 ? wholeHour - 12 : wholeHour;
   return `${hour12}:${String(minutes).padStart(2, '0')} ${period}`;
 }
 
-function hourToTime(hourValue: number): string {
-  const hours = Math.floor(hourValue);
-  const minutes = Math.round((hourValue - hours) * 60);
-  return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+function hourToTime(h: number): string {
+  const wholeHour = Math.floor(h);
+  const minutes = Math.round((h - wholeHour) * 60);
+  return `${String(wholeHour).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
 }
 
-function timeToHour(time?: string): number {
-  if (!time) return 0;
-  const [hours, minutes] = time.split(':').map(Number);
-  return hours + (minutes || 0) / 60;
+function timeToHour(t: string): number {
+  const [hours, minutes] = t.split(':').map(Number);
+  return (hours || 0) + (minutes || 0) / 60;
 }
 
 function slotOverlaps(startA: number, endA: number, startB: number, endB: number): boolean {
   return startA < endB && endA > startB;
 }
 
-interface ScheduleBlock {
+interface BusyBlock {
   date: string;
   startHour: number;
   endHour: number;
   title: string;
-  type: 'availability' | 'meeting' | 'unavailable' | 'pending';
+  type: 'meeting' | 'pending' | 'unavailable';
+}
+
+interface AvailabilityBlock {
+  date: string;
+  startHour: number;
+  endHour: number;
+  title: string;
 }
 
 interface BookMeetingProps {
@@ -57,12 +59,13 @@ interface BookMeetingProps {
 
 export default function BookMeeting({ isOpen, onClose, preSelectedDate }: BookMeetingProps = {}) {
   const { t, dir, locale } = useI18n();
-  const displayLocale = locale === 'ar' ? 'ar' : 'en';
-  const dateLocale = displayLocale === 'ar' ? ar : enUS;
+  const displayLocale = locale as 'en' | 'ar';
   const [currentDate, setCurrentDate] = useState(preSelectedDate ? new Date(preSelectedDate) : new Date());
   const [selectedDay, setSelectedDay] = useState<Date | null>(null);
-  const [availabilityBlocks, setAvailabilityBlocks] = useState<ScheduleBlock[]>([]);
-  const [busyBlocks, setBusyBlocks] = useState<ScheduleBlock[]>([]);
+  const [meetingBlocks, setMeetingBlocks] = useState<BusyBlock[]>([]);
+  const [pendingBlocks, setPendingBlocks] = useState<BusyBlock[]>([]);
+  const [unavailableBlocks, setUnavailableBlocks] = useState<BusyBlock[]>([]);
+  const [availabilityBlocks, setAvailabilityBlocks] = useState<AvailabilityBlock[]>([]);
   const [selectedSlot, setSelectedSlot] = useState<number | null>(null);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -73,85 +76,29 @@ export default function BookMeeting({ isOpen, onClose, preSelectedDate }: BookMe
   const [isPastDay, setIsPastDay] = useState(false);
   const [pastors, setPastors] = useState<string[]>([]);
 
-  useEffect(() => {
-    const availabilityRef = ref(database, 'availability/');
-    const unsubscribe = onValue(availabilityRef, (snapshot) => {
-      const data = snapshot.val();
-      const blocks: ScheduleBlock[] = [];
-
-      if (data) {
-        Object.values(data).forEach((val: any) => {
-          if (val.date) {
-            blocks.push({
-              date: val.date,
-              startHour: timeToHour(val.startTime || '09:00'),
-              endHour: timeToHour(val.endTime || '20:00'),
-              title: val.reason || t('calendar.available'),
-              type: 'availability',
-            });
-          }
-        });
-      }
-
-      setAvailabilityBlocks(blocks);
-    });
-
-    return () => unsubscribe();
-  }, [t]);
+  const busyBlocks = [...meetingBlocks, ...pendingBlocks, ...unavailableBlocks];
 
   useEffect(() => {
     const meetingsRef = ref(database, 'meetings/');
     const unsubscribe = onValue(meetingsRef, (snapshot) => {
       const data = snapshot.val();
-      const meetingBlocks: ScheduleBlock[] = [];
+      const blocks: BusyBlock[] = [];
 
       if (data) {
         Object.values(data).forEach((val: any) => {
           if (val.date && val.startTime && val.endTime) {
-            meetingBlocks.push({
+            blocks.push({
               date: val.date,
               startHour: timeToHour(val.startTime),
               endHour: timeToHour(val.endTime),
-              title: val.requestName ? `${t('calendar.meetingWith')} ${val.requestName}` : val.title || t('booking.meeting'),
+              title: val.requestName ? `${t('calendar.meetingWith')} ${val.requestName}` : (val.title || t('booking.meeting')),
               type: 'meeting',
             });
           }
         });
       }
 
-      setBusyBlocks(prev => [
-        ...prev.filter(block => block.type !== 'meeting'),
-        ...meetingBlocks,
-      ]);
-    });
-
-    return () => unsubscribe();
-  }, [t]);
-
-  useEffect(() => {
-    const unavailabilityRef = ref(database, 'unavailability/');
-    const unsubscribe = onValue(unavailabilityRef, (snapshot) => {
-      const data = snapshot.val();
-      const unavailableBlocks: ScheduleBlock[] = [];
-
-      if (data) {
-        Object.values(data).forEach((val: any) => {
-          if (val.date) {
-            unavailableBlocks.push({
-              date: val.date,
-              startHour: timeToHour(val.startTime || '00:00'),
-              endHour: timeToHour(val.endTime || '23:59'),
-              title: val.reason || t('booking.unavailable'),
-              type: 'unavailable',
-            });
-          }
-        });
-      }
-
-      setBusyBlocks(prev => [
-        ...prev.filter(block => block.type !== 'unavailable'),
-        ...unavailableBlocks,
-      ]);
+      setMeetingBlocks(blocks);
     });
 
     return () => unsubscribe();
@@ -161,12 +108,12 @@ export default function BookMeeting({ isOpen, onClose, preSelectedDate }: BookMe
     const requestsRef = ref(database, 'meetingRequests/');
     const unsubscribe = onValue(requestsRef, (snapshot) => {
       const data = snapshot.val();
-      const pendingBlocks: ScheduleBlock[] = [];
+      const blocks: BusyBlock[] = [];
 
       if (data) {
         Object.values(data).forEach((val: any) => {
           if (val.date && val.startTime && val.endTime && val.status === 'pending') {
-            pendingBlocks.push({
+            blocks.push({
               date: val.date,
               startHour: timeToHour(val.startTime),
               endHour: timeToHour(val.endTime),
@@ -177,10 +124,62 @@ export default function BookMeeting({ isOpen, onClose, preSelectedDate }: BookMe
         });
       }
 
-      setBusyBlocks(prev => [
-        ...prev.filter(block => block.type !== 'pending'),
-        ...pendingBlocks,
-      ]);
+      setPendingBlocks(blocks);
+    });
+
+    return () => unsubscribe();
+  }, [t]);
+
+  useEffect(() => {
+    const unavailabilityRef = ref(database, 'unavailability/');
+    const unsubscribe = onValue(unavailabilityRef, (snapshot) => {
+      const data = snapshot.val();
+      const blocks: BusyBlock[] = [];
+
+      if (data) {
+        Object.values(data).forEach((val: any) => {
+          if (val.date) {
+            const startTime = val.startTime || '00:00';
+            const endTime = val.endTime || '23:59';
+            blocks.push({
+              date: val.date,
+              startHour: timeToHour(startTime),
+              endHour: timeToHour(endTime),
+              title: val.reason || t('booking.unavailable'),
+              type: 'unavailable',
+            });
+          }
+        });
+      }
+
+      setUnavailableBlocks(blocks);
+    });
+
+    return () => unsubscribe();
+  }, [t]);
+
+  useEffect(() => {
+    const availabilityRef = ref(database, 'availability/');
+    const unsubscribe = onValue(availabilityRef, (snapshot) => {
+      const data = snapshot.val();
+      const blocks: AvailabilityBlock[] = [];
+
+      if (data) {
+        Object.values(data).forEach((val: any) => {
+          if (val.date) {
+            const startTime = val.startTime || '09:00';
+            const endTime = val.endTime || '20:00';
+            blocks.push({
+              date: val.date,
+              startHour: timeToHour(startTime),
+              endHour: timeToHour(endTime),
+              title: val.reason || t('calendar.available'),
+            });
+          }
+        });
+      }
+
+      setAvailabilityBlocks(blocks);
     });
 
     return () => unsubscribe();
@@ -196,8 +195,6 @@ export default function BookMeeting({ isOpen, onClose, preSelectedDate }: BookMe
           emails.push(k.replace(/,/g, '.').toLowerCase().trim());
         });
         setPastors(emails);
-      } else {
-        setPastors([]);
       }
     });
     return () => unsubscribe();
@@ -224,56 +221,63 @@ export default function BookMeeting({ isOpen, onClose, preSelectedDate }: BookMe
     end: endOfMonth(currentDate),
   });
 
-  const slotHours = Array.from(
-    { length: Math.floor((BUSINESS_END - BUSINESS_START) / SLOT_DURATION) },
-    (_, index) => BUSINESS_START + index * SLOT_DURATION
-  );
-
-  const getDateString = (day: Date): string => format(day, 'yyyy-MM-dd');
-
-  const getDayBlocks = (day: Date): ScheduleBlock[] => {
-    const dayStr = getDateString(day);
-    return [...availabilityBlocks, ...busyBlocks]
-      .filter(block => block.date === dayStr)
-      .sort((a, b) => a.startHour - b.startHour || a.endHour - b.endHour);
+  const getDayBlocks = (day: Date): BusyBlock[] => {
+    const dayStr = format(day, 'yyyy-MM-dd');
+    return busyBlocks.filter(b => b.date === dayStr);
   };
 
-  const isSlotInsideAvailability = (day: Date, startHour: number): boolean => {
-    const dayStr = getDateString(day);
-    const endHour = startHour + SLOT_DURATION;
+  const isSlotInsideAvailability = (day: Date, hour: number): boolean => {
+    const dayStr = format(day, 'yyyy-MM-dd');
+    const slotStart = hour;
+    const slotEnd = hour + SLOT_DURATION;
 
-    return availabilityBlocks.some(block => (
+    return availabilityBlocks.some(block =>
       block.date === dayStr &&
-      startHour >= block.startHour &&
-      endHour <= block.endHour
-    ));
+      slotStart >= block.startHour &&
+      slotEnd <= block.endHour
+    );
   };
 
-  const isSlotBooked = (day: Date, startHour: number): boolean => {
-    const dayStr = getDateString(day);
-    const endHour = startHour + SLOT_DURATION;
+  const isSlotBooked = (day: Date, hour: number): boolean => {
+    const dayStr = format(day, 'yyyy-MM-dd');
+    const slotStart = hour;
+    const slotEnd = hour + SLOT_DURATION;
 
-    return busyBlocks.some(block => (
+    return [...meetingBlocks, ...pendingBlocks].some(block =>
       block.date === dayStr &&
-      slotOverlaps(startHour, endHour, block.startHour, block.endHour)
-    ));
+      slotOverlaps(slotStart, slotEnd, block.startHour, block.endHour)
+    );
   };
 
-  const isSlotInfeasible = (day: Date, startHour: number): boolean => {
-    const endHour = startHour + SLOT_DURATION;
+  const isSlotUnavailable = (day: Date, hour: number): boolean => {
+    const dayStr = format(day, 'yyyy-MM-dd');
+    const slotStart = hour;
+    const slotEnd = hour + SLOT_DURATION;
 
-    if (startHour < BUSINESS_START || endHour > BUSINESS_END) return true;
-    if (isBefore(startOfDay(day), startOfDay(new Date()))) return true;
+    return unavailableBlocks.some(block =>
+      block.date === dayStr &&
+      slotOverlaps(slotStart, slotEnd, block.startHour, block.endHour)
+    );
+  };
 
-    const dayStr = getDateString(day);
-    const todayStr = getDateString(new Date());
+  const isSlotInfeasible = (day: Date, hour: number): boolean => {
+    const slotEnd = hour + SLOT_DURATION;
+    if (hour < BUSINESS_START || slotEnd > BUSINESS_END) return true;
+
+    const dayStr = format(day, 'yyyy-MM-dd');
+    const todayStr = format(new Date(), 'yyyy-MM-dd');
+
     if (dayStr === todayStr) {
       const now = new Date();
       const nowHour = now.getHours() + now.getMinutes() / 60;
-      if (startHour <= nowHour) return true;
+      if (hour <= nowHour) return true;
     }
 
-    return !isSlotInsideAvailability(day, startHour);
+    if (isBefore(startOfDay(day), startOfDay(new Date()))) return true;
+    if (!isSlotInsideAvailability(day, hour)) return true;
+    if (isSlotUnavailable(day, hour)) return true;
+
+    return false;
   };
 
   const handleDayClick = (day: Date) => {
@@ -292,14 +296,14 @@ export default function BookMeeting({ isOpen, onClose, preSelectedDate }: BookMe
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedDay || selectedSlot === null) return;
-    if (isSlotBooked(selectedDay, selectedSlot) || isSlotInfeasible(selectedDay, selectedSlot)) {
-      alert(t('booking.timeConflict'));
-      return;
-    }
-
     setLoading(true);
     try {
-      const dateStr = getDateString(selectedDay);
+      if (isSlotBooked(selectedDay, selectedSlot) || isSlotInfeasible(selectedDay, selectedSlot)) {
+        alert(t('booking.timeConflict'));
+        return;
+      }
+
+      const dateStr = format(selectedDay, 'yyyy-MM-dd');
       const request = {
         name,
         email,
@@ -335,13 +339,20 @@ export default function BookMeeting({ isOpen, onClose, preSelectedDate }: BookMe
     }
   };
 
-  const slotStatus = (day: Date, hour: number): SlotStatus => {
+  const slotStatus = (day: Date, hour: number): 'booked' | 'infeasible' | 'available' => {
     if (isSlotBooked(day, hour)) return 'booked';
     if (isSlotInfeasible(day, hour)) return 'infeasible';
     return 'available';
   };
 
-  const daySlots = selectedDay ? getDayBlocks(selectedDay) : [];
+  const daySlots = selectedDay ? busyBlocks
+    .filter(b => b.date === format(selectedDay, 'yyyy-MM-dd'))
+    .sort((a, b) => a.startHour - b.startHour) : [];
+
+  const slotHours = Array.from(
+    { length: Math.floor((BUSINESS_END - BUSINESS_START) / SLOT_DURATION) },
+    (_, index) => BUSINESS_START + index * SLOT_DURATION
+  );
 
   const content = (
     <div className="space-y-8 max-w-5xl mx-auto px-4 py-8" dir={dir} style={{ fontFamily: 'Arial, sans-serif' }}>
@@ -365,14 +376,14 @@ export default function BookMeeting({ isOpen, onClose, preSelectedDate }: BookMe
       <div className="flex flex-wrap justify-center gap-4 text-xs font-bold">
         <div className="flex items-center gap-2"><div className="w-4 h-4 rounded bg-red-50 border border-red-200"></div>{t('booking.legendInfeasible')}</div>
         <div className="flex items-center gap-2"><div className="w-4 h-4 rounded bg-green-50 border border-green-200"></div>{t('booking.legendAvailable')}</div>
-        <div className="flex items-center gap-2"><div className="w-4 h-4 rounded bg-amber-50 border border-amber-200"></div>{t('booking.legendBooked')}</div>
+        <div className="flex items-center gap-2"><div className="w-4 h-4 rounded bg-gray-200 border border-gray-300"></div>{t('booking.legendBooked')}</div>
       </div>
 
       <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-6">
         <div className="flex items-center justify-between mb-6">
           <button onClick={() => setCurrentDate(subMonths(currentDate, 1))} className="p-2 hover:bg-gray-100 rounded-full transition-colors"><ChevronLeft size={20} /></button>
           <div className="text-center">
-            <h2 className="text-xl font-bold text-[#1A1A1A]">{format(currentDate, 'MMMM yyyy', { locale: dateLocale })}</h2>
+            <h2 className="text-xl font-bold text-[#1A1A1A]">{format(currentDate, 'MMMM yyyy')}</h2>
             <p className="text-xs text-gray-400 uppercase tracking-widest mt-1">{t('calendar.schedule')}</p>
           </div>
           <button onClick={() => setCurrentDate(addMonths(currentDate, 1))} className="p-2 hover:bg-gray-100 rounded-full transition-colors"><ChevronRight size={20} /></button>
@@ -414,9 +425,7 @@ export default function BookMeeting({ isOpen, onClose, preSelectedDate }: BookMe
                   <div className="flex flex-col gap-0.5 mt-1 flex-1 justify-end">
                     {dayBlocks.slice(0, 2).map((b, i) => (
                       <div key={i} className={`text-[8px] px-1 py-0.5 rounded truncate ${
-                        b.type === 'availability'
-                          ? (isSelected ? 'bg-white/20 text-white/80' : 'bg-green-100 text-green-600')
-                          : b.type === 'unavailable'
+                        b.type === 'unavailable'
                           ? (isSelected ? 'bg-white/20 text-white/80' : 'bg-red-100 text-red-600')
                           : (isSelected ? 'bg-white/20 text-white/80' : 'bg-amber-100 text-amber-600')
                       }`}>
@@ -440,7 +449,7 @@ export default function BookMeeting({ isOpen, onClose, preSelectedDate }: BookMe
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-lg font-bold flex items-center gap-2 text-[#8b1e1e]">
                 <Clock size={18} />
-                {format(selectedDay, 'EEEE, MMMM d, yyyy', { locale: dateLocale })}
+                {format(selectedDay, 'EEEE, MMMM d, yyyy')}
               </h3>
               <button onClick={() => setSelectedDay(null)} className="p-2 hover:bg-gray-100 rounded-full transition-colors"><X size={18} /></button>
             </div>
@@ -449,19 +458,17 @@ export default function BookMeeting({ isOpen, onClose, preSelectedDate }: BookMe
               <div className="mb-6 bg-stone-50 rounded-xl p-4 border border-gray-100">
                 <div className="flex items-center gap-2 mb-3">
                   <Ban size={14} className="text-red-500" />
-                  <span className="text-xs font-bold text-gray-500 uppercase tracking-widest">{t('booking.scheduleBlocks')}</span>
+                  <span className="text-xs font-bold text-gray-500 uppercase tracking-widest">{t('booking.blockedSlots')}</span>
                 </div>
                 <div className="space-y-2">
                   {daySlots.map((slot, i) => (
                     <div key={i} className={`flex items-center justify-between px-3 py-2 rounded-lg text-xs font-bold ${
-                      slot.type === 'availability'
-                        ? 'bg-green-100 text-green-700 border border-green-200'
-                        : slot.type === 'unavailable'
+                      slot.type === 'unavailable'
                         ? 'bg-red-100 text-red-700 border border-red-200'
                         : 'bg-amber-100 text-amber-700 border border-amber-200'
                     }`}>
                       <div className="flex items-center gap-2">
-                        {slot.type === 'availability' ? <CheckCircle size={12} /> : slot.type === 'unavailable' ? <Ban size={12} /> : <CalendarIcon size={12} />}
+                        {slot.type === 'unavailable' ? <Ban size={12} /> : <CalendarIcon size={12} />}
                         <span>{slot.title}</span>
                       </div>
                       <span className="opacity-75">{hourToLabel(slot.startHour, displayLocale)} - {hourToLabel(slot.endHour, displayLocale)}</span>
@@ -481,7 +488,7 @@ export default function BookMeeting({ isOpen, onClose, preSelectedDate }: BookMe
                     onClick={() => handleSlotClick(hour)}
                     className={`relative p-3 rounded-xl border text-sm font-bold transition-all ${
                       status === 'booked'
-                        ? 'bg-amber-50 border-amber-200 text-amber-700 cursor-not-allowed'
+                        ? 'bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed'
                         : status === 'infeasible'
                         ? 'bg-red-50 border-red-200 text-red-300 cursor-not-allowed'
                         : isSel
@@ -489,7 +496,7 @@ export default function BookMeeting({ isOpen, onClose, preSelectedDate }: BookMe
                         : 'bg-green-50 border-green-200 text-green-700 hover:bg-green-100 hover:scale-102 cursor-pointer'
                     }`}
                   >
-                    {hourToLabel(hour, displayLocale)} - {hourToLabel(hour + SLOT_DURATION, displayLocale)}
+                    {hourToLabel(hour, displayLocale)}
                     {status === 'booked' && <div className="text-[9px] mt-1">{t('booking.booked')}</div>}
                     {status === 'infeasible' && <div className="text-[9px] mt-1">—</div>}
                     {status === 'available' && <div className="text-[9px] mt-1 text-green-500">{t('booking.slotAvailable')}</div>}
@@ -501,7 +508,7 @@ export default function BookMeeting({ isOpen, onClose, preSelectedDate }: BookMe
             {selectedSlot !== null && !success && (
               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-stone-50 rounded-2xl p-5 border border-gray-100">
                 <h4 className="font-bold text-sm text-gray-500 mb-3 uppercase tracking-widest">
-                  {t('booking.bookFor')} {hourToLabel(selectedSlot, displayLocale)} - {hourToLabel(selectedSlot + SLOT_DURATION, displayLocale)}
+                  {t('booking.bookFor')} {hourToLabel(selectedSlot, displayLocale)}
                 </h4>
                 <form onSubmit={handleSubmit} className="space-y-3">
                   <div>
