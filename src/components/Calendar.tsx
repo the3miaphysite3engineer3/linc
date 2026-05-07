@@ -15,6 +15,7 @@ import {
   storeTokens,
   clearTokens,
   sendGmailEmail,
+  sendEmailViaEmailJS,
   type GmailTokens,
 } from '../services/gmail';
 import PageTitle from './PageTitle';
@@ -376,6 +377,49 @@ export default function Calendar() {
     return (meeting as any).requestReason || '';
   };
 
+  const getMeetingAcknowledged = (meeting: Meeting): boolean => {
+    return Boolean((meeting as any).acknowledged);
+  };
+
+  const buildMeetingConfirmationEmail = (meeting: Meeting): { subject: string; fullReport: string } => {
+    const name = (meeting as any).requestName || t('calendar.meeting');
+    const dateTextEn = meeting.date ? format(parseISO(meeting.date), 'EEEE, MMMM d, yyyy', { locale: enUS }) : '';
+    const dateTextAr = meeting.date ? format(parseISO(meeting.date), 'EEEE, MMMM d, yyyy', { locale: ar }) : '';
+    const timeTextEn = timeRangeToLabel(meeting.startTime, meeting.endTime, 'en');
+    const timeTextAr = timeRangeToLabel(meeting.startTime, meeting.endTime, 'ar');
+    const meetingLink = meeting.meetLink || '';
+    const location = meeting.location || '';
+
+    const fullReport = [
+      `مرحباً ${name}،`,
+      '',
+      'نود تأكيد موعد اجتماعك بالتفاصيل التالية:',
+      `التاريخ: ${dateTextAr}`,
+      `الوقت: ${timeTextAr}`,
+      location ? `المكان: ${location}` : '',
+      meetingLink ? `رابط الانضمام: ${meetingLink}` : 'رابط الانضمام: سيتم إرساله لاحقاً.',
+      '',
+      'شكراً لك، ونتطلع إلى لقائك.',
+      '',
+      '=========================================',
+      '',
+      `Hi ${name},`,
+      '',
+      'We would like to confirm your meeting at the following time:',
+      `Date: ${dateTextEn}`,
+      `Time: ${timeTextEn}`,
+      location ? `Location: ${location}` : '',
+      meetingLink ? `Here is the link for joining: ${meetingLink}` : 'The joining link will be sent later.',
+      '',
+      'Thank you, and we look forward to meeting with you.',
+    ].filter(line => line !== '').join('\n');
+
+    return {
+      subject: 'تأكيد موعد الاجتماع / Meeting Confirmation',
+      fullReport,
+    };
+  };
+
   const openMeetingEditor = (meeting: Meeting) => {
     setEditingMeeting(meeting);
     setNewMeeting({ ...meeting });
@@ -462,6 +506,31 @@ export default function Calendar() {
           }
         });
 
+        const finalizedDetailsChanged =
+          (editingMeeting.date || '') !== meetingData.date ||
+          (editingMeeting.startTime || '') !== meetingData.startTime ||
+          (editingMeeting.endTime || '') !== meetingData.endTime ||
+          (editingMeeting.meetLink || '') !== meetingData.meetLink ||
+          (editingMeeting.location || '') !== meetingData.location;
+
+        if (finalizedDetailsChanged) {
+          meetingData.acknowledged = false;
+          meetingData.acknowledgedAt = null;
+          meetingData.acknowledgedEmail = null;
+        } else {
+          meetingData.acknowledged = Boolean((editingMeeting as any).acknowledged);
+
+          const acknowledgedAt = (editingMeeting as any).acknowledgedAt;
+          if (acknowledgedAt !== undefined && acknowledgedAt !== null && acknowledgedAt !== '') {
+            meetingData.acknowledgedAt = acknowledgedAt;
+          }
+
+          const acknowledgedEmail = (editingMeeting as any).acknowledgedEmail;
+          if (acknowledgedEmail !== undefined && acknowledgedEmail !== null && acknowledgedEmail !== '') {
+            meetingData.acknowledgedEmail = acknowledgedEmail;
+          }
+        }
+
         const { update } = await import('firebase/database');
         await update(ref(database, `meetings/${editingMeeting.id}`), meetingData);
 
@@ -476,7 +545,10 @@ export default function Calendar() {
         }
       } else {
         const { push } = await import('firebase/database');
-        await push(ref(database, 'meetings/'), meetingData);
+        await push(ref(database, 'meetings/'), {
+          ...meetingData,
+          acknowledged: false,
+        });
       }
 
       const emailSuccess = await sendEmails({
@@ -518,6 +590,48 @@ export default function Calendar() {
       } catch (err) {
         console.error(err);
       }
+    }
+  };
+
+  const handleSendMeetingConfirmation = async (meeting: Meeting) => {
+    const recipientEmail = getMeetingRequestEmail(meeting);
+
+    if (!meeting.id || !recipientEmail) {
+      alert(displayLocale === 'ar' ? 'لا يوجد بريد إلكتروني لهذا الاجتماع.' : 'This meeting does not have a requester email.');
+      return;
+    }
+
+    if (getMeetingAcknowledged(meeting)) {
+      alert(displayLocale === 'ar' ? 'تم إرسال تأكيد هذا الاجتماع بالفعل.' : 'This meeting confirmation was already sent.');
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const { subject, fullReport } = buildMeetingConfirmationEmail(meeting);
+
+      await sendEmailViaEmailJS(recipientEmail, {
+        subject,
+        fullName: (meeting as any).requestName || '',
+        meetingDate: meeting.date || '',
+        meetingTime: timeRangeToLabel(meeting.startTime, meeting.endTime, displayLocale),
+        meetLink: meeting.meetLink || '',
+        fullReport,
+      });
+
+      const { update } = await import('firebase/database');
+      await update(ref(database, `meetings/${meeting.id}`), {
+        acknowledged: true,
+        acknowledgedAt: Date.now(),
+        acknowledgedEmail: recipientEmail,
+        updatedAt: Date.now(),
+      });
+    } catch (err) {
+      console.error('Failed to send meeting confirmation:', err);
+      alert(displayLocale === 'ar' ? 'فشل إرسال تأكيد الاجتماع.' : 'Failed to send meeting confirmation.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -769,7 +883,7 @@ Otherwise, provide a helpful response about their calendar.`;
   const handleRequestStatus = async (id: string, status: 'accepted' | 'rejected') => {
     try {
       const { update } = await import('firebase/database');
-      await update(ref(database, `meetingRequests/${id}`), { status });
+      await update(ref(database, `meetingRequests/${id}`), { status, updatedAt: Date.now() });
 
       if (status === 'accepted') {
         const req = meetingRequests.find(r => r.id === id);
@@ -798,35 +912,9 @@ Otherwise, provide a helpful response about their calendar.`;
             requestEmail: req.email,
             requestReason: req.reason || '',
             sourceRequestId: id,
+            acknowledged: false,
             updatedAt: Date.now(),
           });
-
-          try {
-            const tokens = googleTokens || getStoredTokens();
-            if (tokens) {
-              const emailHtml = `
-                <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:24px;background:#f5f4f0;border-radius:22px;">
-                  <div style="background:#8b1e1e;color:white;padding:16px;border-radius:14px;text-align:center;margin-bottom:20px;">
-                    <h1 style="margin:0;font-size:20px;">${t('booking.acceptedEmailTitle')}</h1>
-                  </div>
-                  <p style="color:#333;font-size:15px;">Dear ${req.name},</p>
-                  <p style="color:#555;font-size:14px;">${t('booking.acceptedEmailBody')}</p>
-                  <div style="background:white;padding:16px;border-radius:14px;border:1px solid #e5e5e5;margin-bottom:16px;">
-                    <p style="margin:4px 0;font-size:14px;"><strong>${t('calendar.meeting')}:</strong> ${t('calendar.meetingWithPastor')}</p>
-                    <p style="margin:4px 0;font-size:14px;"><strong>Date:</strong> ${format(parseISO(req.date), 'EEEE, MMMM d, yyyy', { locale: dateLocale })}</p>
-                    <p style="margin:4px 0;font-size:14px;"><strong>Time:</strong> ${timeRangeToLabel(req.startTime, req.endTime, displayLocale)}</p>
-                    ${req.reason ? `<p style="margin:4px 0;font-size:14px;"><strong>Reason:</strong> ${req.reason}</p>` : ''}
-                    ${meetLink ? `<p style="margin:8px 0;font-size:14px;"><strong>Google Meet:</strong> <a href="${meetLink}" style="color:#8b1e1e;font-weight:bold;">Join Meeting</a></p>` : ''}
-                  </div>
-                  <p style="color:#999;font-size:12px;margin-top:24px;">God bless.</p>
-                </div>
-              `.trim();
-
-              await sendGmailEmail(tokens, req.email, t('booking.acceptedEmailSubject'), emailHtml);
-            }
-          } catch (emailErr) {
-            console.error('Failed to send acceptance email:', emailErr);
-          }
         }
       }
     } catch (err) {
@@ -1339,6 +1427,7 @@ Otherwise, provide a helpful response about their calendar.`;
 
             const requestEmail = getMeetingRequestEmail(m);
             const requestReason = getMeetingRequestReason(m);
+            const requestAcknowledged = getMeetingAcknowledged(m);
 
             return (
               <div
@@ -1362,9 +1451,37 @@ Otherwise, provide a helpful response about their calendar.`;
                       )}
                     </div>
                     {requestReason && <p className="text-xs text-gray-400 mt-1 italic">{requestReason}</p>}
+                    {requestEmail && (
+                      <div className={`inline-flex items-center gap-1 mt-2 px-2 py-1 rounded-full text-[10px] font-bold ${
+                        requestAcknowledged
+                          ? 'bg-green-50 text-green-700 border border-green-100'
+                          : 'bg-amber-50 text-amber-700 border border-amber-100'
+                      }`}>
+                        {requestAcknowledged
+                          ? (displayLocale === 'ar' ? 'تم إرسال التأكيد' : 'Confirmation sent')
+                          : (displayLocale === 'ar' ? 'في انتظار التأكيد' : 'Confirmation pending')}
+                      </div>
+                    )}
                   </div>
                 </div>
-                <div className="flex items-center gap-3 self-end md:self-auto">
+                <div className="flex items-center gap-3 self-end md:self-auto flex-wrap justify-end">
+                  {requestEmail && !requestAcknowledged && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleSendMeetingConfirmation(m);
+                      }}
+                      disabled={loading}
+                      className="px-4 py-3 bg-green-50 text-green-700 rounded-xl hover:bg-green-100 transition-colors text-xs font-bold border border-green-100 disabled:opacity-60 disabled:cursor-not-allowed"
+                    >
+                      {displayLocale === 'ar' ? 'إرسال التأكيد' : 'Send confirmation'}
+                    </button>
+                  )}
+                  {requestEmail && requestAcknowledged && (
+                    <span className="px-4 py-3 bg-gray-50 text-gray-500 rounded-xl text-xs font-bold border border-gray-100">
+                      {displayLocale === 'ar' ? 'تم التأكيد' : 'Acknowledged'}
+                    </span>
+                  )}
                   {m.meetLink && (
                     <a
                       href={m.meetLink}
