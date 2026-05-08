@@ -14,6 +14,8 @@ import {
   Trash2,
   X,
 } from 'lucide-react';
+import { ref, push } from 'firebase/database';
+import { database } from '../firebase';
 import { useI18n } from '../i18n';
 
 interface BibleVerseEntry {
@@ -161,6 +163,7 @@ export default function NextGenActivities() {
   const [selectedEndVerse, setSelectedEndVerse] = useState(16);
   const [isFetchingVerses, setIsFetchingVerses] = useState(false);
   const [verseFetchError, setVerseFetchError] = useState('');
+  const [isSavingDraft, setIsSavingDraft] = useState(false);
 
   const filteredBooks = useMemo(() => {
     const query = bookSearch.trim().toLowerCase();
@@ -320,14 +323,53 @@ export default function NextGenActivities() {
     });
   };
 
-  const handleSaveDraft = () => {
-    const payload = {
-      ...form,
-      updatedAt: Date.now(),
-    };
+  const handleSaveDraft = async () => {
+    const cleanedQuestion = form.question.trim();
+    const cleanedNotes = form.notes.trim();
+    const cleanedVerses = form.verses
+      .map(verse => ({
+        reference: verse.reference.trim(),
+        text: verse.text.trim(),
+      }))
+      .filter(verse => verse.reference || verse.text);
 
-    console.log('NextGen Q&A draft:', payload);
-    alert(isArabic ? 'تم تجهيز مسودة جلسة الأسئلة.' : 'Q&A session draft prepared.');
+    if (!cleanedQuestion) {
+      alert(isArabic ? 'يرجى كتابة السؤال قبل الحفظ.' : 'Please write the question before saving.');
+      return;
+    }
+
+    if (cleanedVerses.length === 0) {
+      alert(isArabic ? 'يرجى إضافة آية واحدة على الأقل قبل الحفظ.' : 'Please add at least one related verse before saving.');
+      return;
+    }
+
+    setIsSavingDraft(true);
+
+    try {
+      const now = Date.now();
+      const payload = {
+        question: cleanedQuestion,
+        category: form.category,
+        verses: cleanedVerses,
+        notes: cleanedNotes,
+        status: 'submittedForPastorReview',
+        source: 'nextGenActivities',
+        translation: 'WEB',
+        createdAt: now,
+        updatedAt: now,
+      };
+
+      await push(ref(database, 'nextGenActivities/qaSessions/'), payload);
+
+      alert(isArabic ? 'تم حفظ السؤال ليتمكن Pastor من مراجعته.' : 'Q&A session saved for Pastor review.');
+      resetForm();
+      setIsQASessionOpen(false);
+    } catch (err) {
+      console.error('Failed to save NextGen Q&A session:', err);
+      alert(isArabic ? 'فشل حفظ السؤال في قاعدة البيانات.' : 'Failed to save the Q&A session to the database.');
+    } finally {
+      setIsSavingDraft(false);
+    }
   };
 
   return (
@@ -691,10 +733,13 @@ export default function NextGenActivities() {
                   <button
                     type="button"
                     onClick={handleSaveDraft}
-                    className="inline-flex items-center justify-center gap-2 px-7 py-3 bg-[#8b1e1e] text-white rounded-xl font-bold shadow-[0_8px_22px_rgba(139,30,30,0.22)] hover:bg-[#641414] active:bg-[#3f0f0f] transition-colors"
+                    disabled={isSavingDraft}
+                    className="inline-flex items-center justify-center gap-2 px-7 py-3 bg-[#8b1e1e] text-white rounded-xl font-bold shadow-[0_8px_22px_rgba(139,30,30,0.22)] hover:bg-[#641414] active:bg-[#3f0f0f] disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
                   >
-                    <Save size={18} />
-                    {isArabic ? 'حفظ المسودة' : 'Save Draft'}
+                    {isSavingDraft ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
+                    {isSavingDraft
+                      ? (isArabic ? 'جار الحفظ...' : 'Saving...')
+                      : (isArabic ? 'حفظ للمراجعة' : 'Save for Pastor Review')}
                   </button>
                 </div>
               </div>
