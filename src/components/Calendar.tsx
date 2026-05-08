@@ -1425,6 +1425,36 @@ Otherwise, provide a helpful response about their calendar.`;
             }
           });
 
+          const dayScheduleItems = [
+            ...dayAvailability.map(a => ({
+              kind: 'availability' as const,
+              id: `availability-${a.id}`,
+              startHour: a.allDay ? 0 : timeToHour(a.startTime || '09:00'),
+              endHour: a.allDay ? 24 : timeToHour(a.endTime || '20:00'),
+              item: a,
+            })),
+            ...dayUnavailability.map(u => ({
+              kind: 'unavailability' as const,
+              id: `unavailability-${u.id}`,
+              startHour: u.allDay ? 0 : timeToHour(u.startTime || '00:00'),
+              endHour: u.allDay ? 24 : timeToHour(u.endTime || '23:59'),
+              item: u,
+            })),
+            ...dayMeetings.map(m => ({
+              kind: 'meeting' as const,
+              id: `meeting-${m.id}`,
+              startHour: timeToHour(m.startTime || '00:00'),
+              endHour: timeToHour(m.endTime || m.startTime || '00:00'),
+              item: m,
+            })),
+          ].sort((a, b) => {
+            if (a.startHour !== b.startHour) return a.startHour - b.startHour;
+            if (a.endHour !== b.endHour) return a.endHour - b.endHour;
+
+            const order = { availability: 0, unavailability: 1, meeting: 2 };
+            return order[a.kind] - order[b.kind];
+          });
+
           return (
             <div
               key={day.toISOString()}
@@ -1449,87 +1479,99 @@ Otherwise, provide a helpful response about their calendar.`;
                   </div>
                 )}
 
-                {dayAvailability.map(a => (
-                  <div
-                    key={a.id}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setEditingAvailability(a);
-                      setAvailabilityForm({
-                        mode: 'single',
-                        date: a.date,
-                        startDate: a.date,
-                        endDate: a.date,
-                        selectedWeekdays: [0, 1, 2, 3, 4, 5, 6],
-                        startTime: a.startTime || '09:00',
-                        endTime: a.endTime || '20:00',
-                        reason: a.reason || '',
-                        allDay: a.allDay || false,
-                      });
-                      setShowAvailabilityModal(true);
-                    }}
-                    className="p-2 bg-green-50 rounded-lg text-[10px] cursor-pointer group hover:bg-green-100 transition-colors border border-green-200 relative"
-                  >
-                    <button
-                      type="button"
+                {dayScheduleItems.map(scheduleItem => {
+                  if (scheduleItem.kind === 'availability') {
+                    const a = scheduleItem.item;
+
+                    return (
+                      <div
+                        key={scheduleItem.id}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setEditingAvailability(a);
+                          setAvailabilityForm({
+                            mode: 'single',
+                            date: a.date,
+                            startDate: a.date,
+                            endDate: a.date,
+                            selectedWeekdays: [0, 1, 2, 3, 4, 5, 6],
+                            startTime: a.startTime || '09:00',
+                            endTime: a.endTime || '20:00',
+                            reason: a.reason || '',
+                            allDay: a.allDay || false,
+                          });
+                          setShowAvailabilityModal(true);
+                        }}
+                        className="p-2 bg-green-50 rounded-lg text-[10px] cursor-pointer group hover:bg-green-100 transition-colors border border-green-200 relative"
+                      >
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteAvailability(a.id);
+                          }}
+                          className="absolute top-1 right-1 p-0.5 text-green-500 hover:text-green-700 opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <X size={10} />
+                        </button>
+                        <div className="font-bold text-green-700 line-clamp-1">{a.allDay ? t('calendar.available') : timeRangeToLabel(a.startTime, a.endTime, displayLocale)}</div>
+                        {a.reason && <div className="text-green-600 text-[9px] mt-0.5 line-clamp-1">{a.reason}</div>}
+                      </div>
+                    );
+                  }
+
+                  if (scheduleItem.kind === 'unavailability') {
+                    const u = scheduleItem.item;
+
+                    return (
+                      <div
+                        key={scheduleItem.id}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setEditingUnavailability(u);
+                          setUnavailabilityForm({
+                            date: u.date,
+                            startTime: u.startTime || '09:00',
+                            endTime: u.endTime || '20:00',
+                            reason: u.reason || '',
+                            allDay: u.allDay || false,
+                          });
+                          setShowUnavailabilityModal(true);
+                        }}
+                        className="p-2 bg-red-50 rounded-lg text-[10px] cursor-pointer group hover:bg-red-100 transition-colors border border-red-200 relative"
+                      >
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteUnavailability(u.id);
+                          }}
+                          className="absolute top-1 right-1 p-0.5 text-red-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <X size={10} />
+                        </button>
+                        <div className="font-bold text-red-700 line-clamp-1">{u.allDay ? t('calendar.unavailable') : timeRangeToLabel(u.startTime, u.endTime, displayLocale)}</div>
+                        {u.reason && <div className="text-red-500 text-[9px] mt-0.5 line-clamp-1">{u.reason}</div>}
+                      </div>
+                    );
+                  }
+
+                  const m = scheduleItem.item;
+
+                  return (
+                    <div
+                      key={scheduleItem.id}
                       onClick={(e) => {
                         e.stopPropagation();
-                        handleDeleteAvailability(a.id);
+                        openMeetingEditor(m);
                       }}
-                      className="absolute top-1 right-1 p-0.5 text-green-500 hover:text-green-700 opacity-0 group-hover:opacity-100 transition-opacity"
+                      className="p-2 bg-stone-50 rounded-lg text-[10px] cursor-pointer group hover:bg-[#8B1E1E] transition-colors"
                     >
-                      <X size={10} />
-                    </button>
-                    <div className="font-bold text-green-700 line-clamp-1">{a.allDay ? t('calendar.available') : timeRangeToLabel(a.startTime, a.endTime, displayLocale)}</div>
-                    {a.reason && <div className="text-green-600 text-[9px] mt-0.5 line-clamp-1">{a.reason}</div>}
-                  </div>
-                ))}
-
-                {dayUnavailability.map(u => (
-                  <div
-                    key={u.id}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setEditingUnavailability(u);
-                      setUnavailabilityForm({
-                        date: u.date,
-                        startTime: u.startTime || '09:00',
-                        endTime: u.endTime || '20:00',
-                        reason: u.reason || '',
-                        allDay: u.allDay || false,
-                      });
-                      setShowUnavailabilityModal(true);
-                    }}
-                    className="p-2 bg-red-50 rounded-lg text-[10px] cursor-pointer group hover:bg-red-100 transition-colors border border-red-200 relative"
-                  >
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDeleteUnavailability(u.id);
-                      }}
-                      className="absolute top-1 right-1 p-0.5 text-red-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity"
-                    >
-                      <X size={10} />
-                    </button>
-                    <div className="font-bold text-red-700 line-clamp-1">{u.allDay ? t('calendar.unavailable') : timeRangeToLabel(u.startTime, u.endTime, displayLocale)}</div>
-                    {u.reason && <div className="text-red-500 text-[9px] mt-0.5 line-clamp-1">{u.reason}</div>}
-                  </div>
-                ))}
-
-                {dayMeetings.map(m => (
-                  <div
-                    key={m.id}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      openMeetingEditor(m);
-                    }}
-                    className="p-2 bg-stone-50 rounded-lg text-[10px] cursor-pointer group hover:bg-[#8B1E1E] transition-colors"
-                  >
-                    <div className="font-bold group-hover:text-white line-clamp-1">{getMeetingDisplayTitle(m)}</div>
-                    <div className="text-gray-500 group-hover:text-white/80">{timeToLabel(m.startTime, displayLocale)}</div>
-                  </div>
-                ))}
+                      <div className="font-bold group-hover:text-white line-clamp-1">{getMeetingDisplayTitle(m)}</div>
+                      <div className="text-gray-500 group-hover:text-white/80">{timeToLabel(m.startTime, displayLocale)}</div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           );
