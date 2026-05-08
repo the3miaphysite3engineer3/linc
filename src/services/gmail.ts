@@ -23,7 +23,7 @@ export function handleOAuthCallback(): GmailTokens | null {
 }
 
 export function startGoogleAuth(): void {
-  const GOOGLE_CLIENT_ID = '403483609083-df2l9cnkngulk7guunp42p84cc9c2pm5.apps.googleusercontent.com';
+  const GOOGLE_CLIENT_ID = '567224374424-mirl8brlh5ou1u04c8rvhmqpii9e02ap.apps.googleusercontent.com';
   const SCOPES = 'https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/gmail.send';
   const params = new URLSearchParams({
     client_id: GOOGLE_CLIENT_ID,
