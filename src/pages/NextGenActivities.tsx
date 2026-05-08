@@ -5,8 +5,10 @@ import {
   ArrowLeft,
   BookOpen,
   ChevronDown,
+  ExternalLink,
   HelpCircle,
   Plus,
+  Search,
   Save,
   Sparkles,
   Trash2,
@@ -39,6 +41,12 @@ const CATEGORY_OPTIONS = [
   'Other',
 ];
 
+
+function getBibleGatewayUrl(reference: string): string {
+  const safeReference = reference.trim() || 'John 3:16';
+  return `https://www.biblegateway.com/passage/?search=${encodeURIComponent(safeReference)}&version=NIV`;
+}
+
 function createEmptyVerse(): BibleVerseEntry {
   return {
     id: crypto.randomUUID(),
@@ -52,6 +60,8 @@ export default function NextGenActivities() {
   const { dir, locale } = useI18n();
   const isArabic = locale === 'ar';
   const [isQASessionOpen, setIsQASessionOpen] = useState(false);
+  const [bibleGatewayQuery, setBibleGatewayQuery] = useState('John 3:16');
+  const [activeBibleGatewayQuery, setActiveBibleGatewayQuery] = useState('John 3:16');
   const [form, setForm] = useState<QASessionForm>({
     question: '',
     category: 'Theology',
@@ -87,6 +97,53 @@ export default function NextGenActivities() {
         ? [createEmptyVerse()]
         : prev.verses.filter(verse => verse.id !== id),
     }));
+  };
+
+  const bibleGatewayUrl = getBibleGatewayUrl(activeBibleGatewayQuery);
+
+  const handleBibleGatewayLookup = (e: React.FormEvent) => {
+    e.preventDefault();
+
+    const trimmedQuery = bibleGatewayQuery.trim();
+    if (!trimmedQuery) return;
+
+    setActiveBibleGatewayQuery(trimmedQuery);
+  };
+
+  const addCurrentBibleGatewayReference = () => {
+    const reference = activeBibleGatewayQuery.trim();
+    if (!reference) return;
+
+    setForm(prev => {
+      const firstEmptyVerse = prev.verses.find(verse => !verse.reference.trim() && !verse.text.trim());
+
+      if (firstEmptyVerse) {
+        return {
+          ...prev,
+          verses: prev.verses.map(verse =>
+            verse.id === firstEmptyVerse.id
+              ? {
+                  ...verse,
+                  reference,
+                  text: 'See NIV passage in the Bible Gateway lookup widget.',
+                }
+              : verse
+          ),
+        };
+      }
+
+      return {
+        ...prev,
+        verses: [
+          ...prev.verses,
+          {
+            id: crypto.randomUUID(),
+            reference,
+            text: 'See NIV passage in the Bible Gateway lookup widget.',
+          },
+        ],
+      };
+    });
   };
 
   const resetForm = () => {
@@ -225,6 +282,69 @@ export default function NextGenActivities() {
                 </div>
 
                 <div className="space-y-4">
+                  <div className="p-5 rounded-3xl bg-[#f8eeee] border border-[rgba(139,30,30,0.12)]">
+                    <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-4 mb-4">
+                      <div>
+                        <label className="text-xs font-bold text-[#8b1e1e] uppercase tracking-widest">
+                          {isArabic ? 'أداة Bible Gateway - NIV' : 'Bible Gateway NIV Lookup Widget'}
+                        </label>
+                        <p className="text-sm text-[#6f4a4a] mt-1 leading-relaxed">
+                          {isArabic
+                            ? 'ابحث عن المرجع في NIV بدون API key. بعد إيجاد الآية، انسخ المرجع أو النص إلى حقول الآيات بالأسفل.'
+                            : 'Search NIV without an API key. After finding the passage, copy the reference or text into the verse fields below.'}
+                        </p>
+                      </div>
+                      <a
+                        href={bibleGatewayUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-white text-[#8b1e1e] rounded-xl font-bold text-sm border border-[rgba(139,30,30,0.14)] hover:bg-[#8b1e1e] hover:text-white transition-colors whitespace-nowrap"
+                      >
+                        <ExternalLink size={16} />
+                        {isArabic ? 'فتح في Bible Gateway' : 'Open in Bible Gateway'}
+                      </a>
+                    </div>
+
+                    <form onSubmit={handleBibleGatewayLookup} className="flex flex-col sm:flex-row gap-3 mb-4">
+                      <input
+                        type="text"
+                        value={bibleGatewayQuery}
+                        onChange={e => setBibleGatewayQuery(e.target.value)}
+                        placeholder={isArabic ? 'مثال: John 3:16 أو Romans 8:28' : 'Example: John 3:16 or Romans 8:28'}
+                        className="flex-1 px-4 py-3 bg-white border border-[rgba(139,30,30,0.14)] rounded-xl focus:ring-2 focus:ring-[#8b1e1e]/20 outline-none text-[#242424]"
+                      />
+                      <button
+                        type="submit"
+                        className="inline-flex items-center justify-center gap-2 px-5 py-3 bg-[#8b1e1e] text-white rounded-xl font-bold hover:bg-[#641414] active:bg-[#3f0f0f] transition-colors"
+                      >
+                        <Search size={17} />
+                        {isArabic ? 'بحث NIV' : 'Search NIV'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={addCurrentBibleGatewayReference}
+                        className="inline-flex items-center justify-center gap-2 px-5 py-3 bg-white text-[#8b1e1e] rounded-xl font-bold border border-[rgba(139,30,30,0.14)] hover:bg-[#f1dada] transition-colors"
+                      >
+                        <Plus size={17} />
+                        {isArabic ? 'إضافة المرجع' : 'Add Reference'}
+                      </button>
+                    </form>
+
+                    <div className="overflow-hidden rounded-2xl border border-[rgba(139,30,30,0.14)] bg-white">
+                      <iframe
+                        title="Bible Gateway NIV Lookup"
+                        src={bibleGatewayUrl}
+                        className="w-full h-[520px] bg-white"
+                      />
+                    </div>
+
+                    <p className="text-[11px] text-[#8b1e1e]/70 mt-3 leading-relaxed">
+                      {isArabic
+                        ? 'إذا منع المتصفح عرض Bible Gateway داخل الصفحة، استخدم زر الفتح في Bible Gateway بالأعلى. هذا لا يحتاج API key ولا يوقف الصفحة.'
+                        : 'If the browser blocks Bible Gateway from displaying inside the page, use the open button above. This uses no API key and does not block the page.'}
+                    </p>
+                  </div>
+
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     <div>
                       <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">
