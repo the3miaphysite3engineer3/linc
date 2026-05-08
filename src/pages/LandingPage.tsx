@@ -1,13 +1,14 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'motion/react';
-import { ClipboardList, LogIn, ArrowRight, Heart, BookOpen, Users, Star, Globe, Calendar as CalendarIcon } from 'lucide-react';
+import { ClipboardList, LogIn, ArrowRight, Heart, BookOpen, Users, Star, Globe, Calendar as CalendarIcon, Sparkles } from 'lucide-react';
 import { useI18n } from '../i18n';
 
 export default function LandingPage() {
   const navigate = useNavigate();
   const { t, dir, locale, setLocale } = useI18n();
   const [scrollY, setScrollY] = useState(0);
+  const [nextGenButtonClicked, setNextGenButtonClicked] = useState(false);
 
   useEffect(() => {
     document.title = locale === 'ar' ? 'تقييم المواهب الروحية - LINC' : 'LINC Spiritual Gifts Assessment';
@@ -83,13 +84,31 @@ export default function LandingPage() {
                 {t('landing.adminLogin')}
               </button>
             </div>
-            <button
-              onClick={() => navigate('/booking')}
-              className="mt-6 inline-flex items-center gap-3 min-h-[52px] px-8 bg-stone-100 text-[#8b1e1e] rounded-full font-bold transition-transform hover:-translate-y-[2px] hover:bg-stone-200"
-            >
-              <CalendarIcon size={18} />
-              {t('landing.bookMeeting')}
-            </button>
+            <div className="mt-6 flex flex-col sm:flex-row gap-4 justify-center">
+              <button
+                onClick={() => navigate('/booking')}
+                className="inline-flex items-center justify-center gap-3 min-h-[52px] px-8 bg-stone-100 text-[#8b1e1e] rounded-full font-bold transition-transform hover:-translate-y-[2px] hover:bg-stone-200"
+              >
+                <CalendarIcon size={18} />
+                {t('landing.bookMeeting')}
+              </button>
+              <button
+                onMouseDown={() => setNextGenButtonClicked(true)}
+                onMouseLeave={() => setNextGenButtonClicked(false)}
+                onClick={() => {
+                  setNextGenButtonClicked(true);
+                  navigate('/nextgen-activities');
+                }}
+                className={`inline-flex items-center justify-center gap-3 min-h-[52px] px-8 rounded-full font-bold border-2 shadow-sm transition-all duration-200 hover:-translate-y-[2px] hover:shadow-[0_12px_32px_rgba(139,30,30,0.22)] active:translate-y-[1px] active:scale-[0.98] ${
+                  nextGenButtonClicked
+                    ? 'bg-[#641414] text-white border-[#641414]'
+                    : 'bg-[#fff7ed] text-[#8b1e1e] border-[#f59e0b] hover:bg-[#f59e0b] hover:text-white hover:border-[#f59e0b] active:bg-[#641414] active:border-[#641414] active:text-white'
+                }`}
+              >
+                <Sparkles size={18} />
+                NextGen Activities
+              </button>
+            </div>
           </motion.div>
         </div>
       </section>
