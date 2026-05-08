@@ -1,15 +1,15 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { motion } from 'motion/react';
 import { useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
   BookOpen,
   ChevronDown,
-  ExternalLink,
   HelpCircle,
+  Loader2,
   Plus,
-  Search,
   Save,
+  Search,
   Sparkles,
   Trash2,
   X,
@@ -29,6 +29,17 @@ interface QASessionForm {
   notes: string;
 }
 
+interface BibleBook {
+  id: string;
+  name: string;
+  chapters: number;
+}
+
+interface ChapterVerse {
+  verse: number;
+  text: string;
+}
+
 const CATEGORY_OPTIONS = [
   'Theology',
   'Apologetics',
@@ -41,18 +52,93 @@ const CATEGORY_OPTIONS = [
   'Other',
 ];
 
+const BIBLE_BOOKS: BibleBook[] = [
+  { id: 'Genesis', name: 'Genesis', chapters: 50 },
+  { id: 'Exodus', name: 'Exodus', chapters: 40 },
+  { id: 'Leviticus', name: 'Leviticus', chapters: 27 },
+  { id: 'Numbers', name: 'Numbers', chapters: 36 },
+  { id: 'Deuteronomy', name: 'Deuteronomy', chapters: 34 },
+  { id: 'Joshua', name: 'Joshua', chapters: 24 },
+  { id: 'Judges', name: 'Judges', chapters: 21 },
+  { id: 'Ruth', name: 'Ruth', chapters: 4 },
+  { id: '1 Samuel', name: '1 Samuel', chapters: 31 },
+  { id: '2 Samuel', name: '2 Samuel', chapters: 24 },
+  { id: '1 Kings', name: '1 Kings', chapters: 22 },
+  { id: '2 Kings', name: '2 Kings', chapters: 25 },
+  { id: '1 Chronicles', name: '1 Chronicles', chapters: 29 },
+  { id: '2 Chronicles', name: '2 Chronicles', chapters: 36 },
+  { id: 'Ezra', name: 'Ezra', chapters: 10 },
+  { id: 'Nehemiah', name: 'Nehemiah', chapters: 13 },
+  { id: 'Esther', name: 'Esther', chapters: 10 },
+  { id: 'Job', name: 'Job', chapters: 42 },
+  { id: 'Psalms', name: 'Psalms', chapters: 150 },
+  { id: 'Proverbs', name: 'Proverbs', chapters: 31 },
+  { id: 'Ecclesiastes', name: 'Ecclesiastes', chapters: 12 },
+  { id: 'Song of Solomon', name: 'Song of Solomon', chapters: 8 },
+  { id: 'Isaiah', name: 'Isaiah', chapters: 66 },
+  { id: 'Jeremiah', name: 'Jeremiah', chapters: 52 },
+  { id: 'Lamentations', name: 'Lamentations', chapters: 5 },
+  { id: 'Ezekiel', name: 'Ezekiel', chapters: 48 },
+  { id: 'Daniel', name: 'Daniel', chapters: 12 },
+  { id: 'Hosea', name: 'Hosea', chapters: 14 },
+  { id: 'Joel', name: 'Joel', chapters: 3 },
+  { id: 'Amos', name: 'Amos', chapters: 9 },
+  { id: 'Obadiah', name: 'Obadiah', chapters: 1 },
+  { id: 'Jonah', name: 'Jonah', chapters: 4 },
+  { id: 'Micah', name: 'Micah', chapters: 7 },
+  { id: 'Nahum', name: 'Nahum', chapters: 3 },
+  { id: 'Habakkuk', name: 'Habakkuk', chapters: 3 },
+  { id: 'Zephaniah', name: 'Zephaniah', chapters: 3 },
+  { id: 'Haggai', name: 'Haggai', chapters: 2 },
+  { id: 'Zechariah', name: 'Zechariah', chapters: 14 },
+  { id: 'Malachi', name: 'Malachi', chapters: 4 },
+  { id: 'Matthew', name: 'Matthew', chapters: 28 },
+  { id: 'Mark', name: 'Mark', chapters: 16 },
+  { id: 'Luke', name: 'Luke', chapters: 24 },
+  { id: 'John', name: 'John', chapters: 21 },
+  { id: 'Acts', name: 'Acts', chapters: 28 },
+  { id: 'Romans', name: 'Romans', chapters: 16 },
+  { id: '1 Corinthians', name: '1 Corinthians', chapters: 16 },
+  { id: '2 Corinthians', name: '2 Corinthians', chapters: 13 },
+  { id: 'Galatians', name: 'Galatians', chapters: 6 },
+  { id: 'Ephesians', name: 'Ephesians', chapters: 6 },
+  { id: 'Philippians', name: 'Philippians', chapters: 4 },
+  { id: 'Colossians', name: 'Colossians', chapters: 4 },
+  { id: '1 Thessalonians', name: '1 Thessalonians', chapters: 5 },
+  { id: '2 Thessalonians', name: '2 Thessalonians', chapters: 3 },
+  { id: '1 Timothy', name: '1 Timothy', chapters: 6 },
+  { id: '2 Timothy', name: '2 Timothy', chapters: 4 },
+  { id: 'Titus', name: 'Titus', chapters: 3 },
+  { id: 'Philemon', name: 'Philemon', chapters: 1 },
+  { id: 'Hebrews', name: 'Hebrews', chapters: 13 },
+  { id: 'James', name: 'James', chapters: 5 },
+  { id: '1 Peter', name: '1 Peter', chapters: 5 },
+  { id: '2 Peter', name: '2 Peter', chapters: 3 },
+  { id: '1 John', name: '1 John', chapters: 5 },
+  { id: '2 John', name: '2 John', chapters: 1 },
+  { id: '3 John', name: '3 John', chapters: 1 },
+  { id: 'Jude', name: 'Jude', chapters: 1 },
+  { id: 'Revelation', name: 'Revelation', chapters: 22 },
+];
 
-function getBibleGatewayUrl(reference: string): string {
-  const safeReference = reference.trim() || 'John 3:16';
-  return `https://www.biblegateway.com/passage/?search=${encodeURIComponent(safeReference)}&version=NIV`;
+function createId(): string {
+  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
+    return crypto.randomUUID();
+  }
+
+  return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
 function createEmptyVerse(): BibleVerseEntry {
   return {
-    id: crypto.randomUUID(),
+    id: createId(),
     reference: '',
     text: '',
   };
+}
+
+function cleanVerseText(text: string): string {
+  return text.replace(/\s+/g, ' ').trim();
 }
 
 export default function NextGenActivities() {
@@ -60,14 +146,106 @@ export default function NextGenActivities() {
   const { dir, locale } = useI18n();
   const isArabic = locale === 'ar';
   const [isQASessionOpen, setIsQASessionOpen] = useState(false);
-  const [bibleGatewayQuery, setBibleGatewayQuery] = useState('John 3:16');
-  const [activeBibleGatewayQuery, setActiveBibleGatewayQuery] = useState('John 3:16');
   const [form, setForm] = useState<QASessionForm>({
     question: '',
     category: 'Theology',
     verses: [createEmptyVerse()],
     notes: '',
   });
+
+  const [bookSearch, setBookSearch] = useState('John');
+  const [selectedBook, setSelectedBook] = useState<BibleBook>(BIBLE_BOOKS.find(book => book.name === 'John') || BIBLE_BOOKS[0]);
+  const [selectedChapter, setSelectedChapter] = useState(3);
+  const [chapterVerses, setChapterVerses] = useState<ChapterVerse[]>([]);
+  const [selectedStartVerse, setSelectedStartVerse] = useState(16);
+  const [selectedEndVerse, setSelectedEndVerse] = useState(16);
+  const [isFetchingVerses, setIsFetchingVerses] = useState(false);
+  const [verseFetchError, setVerseFetchError] = useState('');
+
+  const filteredBooks = useMemo(() => {
+    const query = bookSearch.trim().toLowerCase();
+
+    if (!query) return BIBLE_BOOKS;
+
+    return BIBLE_BOOKS.filter(book => book.name.toLowerCase().includes(query));
+  }, [bookSearch]);
+
+  const chapterOptions = useMemo(() => {
+    return Array.from({ length: selectedBook.chapters }, (_, index) => index + 1);
+  }, [selectedBook]);
+
+  const verseOptions = useMemo(() => {
+    return chapterVerses.map(verse => verse.verse);
+  }, [chapterVerses]);
+
+  const selectedReference = useMemo(() => {
+    if (!selectedBook || !selectedChapter || !selectedStartVerse) return '';
+
+    const versePart = selectedEndVerse > selectedStartVerse
+      ? `${selectedStartVerse}-${selectedEndVerse}`
+      : `${selectedStartVerse}`;
+
+    return `${selectedBook.name} ${selectedChapter}:${versePart} (WEB)`;
+  }, [selectedBook, selectedChapter, selectedStartVerse, selectedEndVerse]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const fetchChapterVerses = async () => {
+      setIsFetchingVerses(true);
+      setVerseFetchError('');
+      setChapterVerses([]);
+
+      try {
+        const reference = encodeURIComponent(`${selectedBook.name} ${selectedChapter}`);
+        const response = await fetch(`https://bible-api.com/${reference}?translation=web`);
+
+        if (!response.ok) {
+          throw new Error(`Bible lookup failed with status ${response.status}`);
+        }
+
+        const data = await response.json();
+        const verses: ChapterVerse[] = Array.isArray(data.verses)
+          ? data.verses
+              .map((verse: any) => ({
+                verse: Number(verse.verse),
+                text: cleanVerseText(String(verse.text || '')),
+              }))
+              .filter((verse: ChapterVerse) => Number.isFinite(verse.verse) && verse.text)
+          : [];
+
+        if (!verses.length) {
+          throw new Error('No verses returned for this chapter.');
+        }
+
+        if (!isMounted) return;
+
+        setChapterVerses(verses);
+        setSelectedStartVerse(verses[0].verse);
+        setSelectedEndVerse(verses[0].verse);
+      } catch (err) {
+        console.error('WEB Bible lookup failed:', err);
+
+        if (!isMounted) return;
+
+        setVerseFetchError(
+          isArabic
+            ? 'تعذر تحميل آيات WEB حالياً. تحقق من الاتصال بالإنترنت ثم حاول مرة أخرى.'
+            : 'Could not load WEB verses right now. Check the internet connection and try again.'
+        );
+      } finally {
+        if (isMounted) {
+          setIsFetchingVerses(false);
+        }
+      }
+    };
+
+    fetchChapterVerses();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [selectedBook, selectedChapter, isArabic]);
 
   const updateVerse = (id: string, field: keyof Omit<BibleVerseEntry, 'id'>, value: string) => {
     setForm(prev => ({
@@ -99,59 +277,46 @@ export default function NextGenActivities() {
     }));
   };
 
-  const bibleGatewayUrl = getBibleGatewayUrl(activeBibleGatewayQuery);
-
-  const handleBibleGatewayLookup = (e: React.FormEvent) => {
-    e.preventDefault();
-
-    const trimmedQuery = bibleGatewayQuery.trim();
-    if (!trimmedQuery) return;
-
-    setActiveBibleGatewayQuery(trimmedQuery);
-  };
-
-  const addCurrentBibleGatewayReference = () => {
-    const reference = activeBibleGatewayQuery.trim();
-    if (!reference) return;
-
-    setForm(prev => {
-      const firstEmptyVerse = prev.verses.find(verse => !verse.reference.trim() && !verse.text.trim());
-
-      if (firstEmptyVerse) {
-        return {
-          ...prev,
-          verses: prev.verses.map(verse =>
-            verse.id === firstEmptyVerse.id
-              ? {
-                  ...verse,
-                  reference,
-                  text: 'See NIV passage in the Bible Gateway lookup widget.',
-                }
-              : verse
-          ),
-        };
-      }
-
-      return {
-        ...prev,
-        verses: [
-          ...prev.verses,
-          {
-            id: crypto.randomUUID(),
-            reference,
-            text: 'See NIV passage in the Bible Gateway lookup widget.',
-          },
-        ],
-      };
-    });
-  };
-
   const resetForm = () => {
     setForm({
       question: '',
       category: 'Theology',
       verses: [createEmptyVerse()],
       notes: '',
+    });
+  };
+
+  const selectBook = (book: BibleBook) => {
+    setSelectedBook(book);
+    setBookSearch(book.name);
+    setSelectedChapter(1);
+    setSelectedStartVerse(1);
+    setSelectedEndVerse(1);
+  };
+
+  const addSelectedWebVerse = () => {
+    if (!chapterVerses.length || !selectedReference) return;
+
+    const start = Math.min(selectedStartVerse, selectedEndVerse);
+    const end = Math.max(selectedStartVerse, selectedEndVerse);
+    const selectedText = chapterVerses
+      .filter(verse => verse.verse >= start && verse.verse <= end)
+      .map(verse => `${verse.verse}. ${verse.text}`)
+      .join('\n');
+
+    const newVerse: BibleVerseEntry = {
+      id: createId(),
+      reference: selectedReference,
+      text: selectedText,
+    };
+
+    setForm(prev => {
+      const hasOnlyEmptyVerse = prev.verses.length === 1 && !prev.verses[0].reference.trim() && !prev.verses[0].text.trim();
+
+      return {
+        ...prev,
+        verses: hasOnlyEmptyVerse ? [newVerse] : [...prev.verses, newVerse],
+      };
     });
   };
 
@@ -234,8 +399,8 @@ export default function NextGenActivities() {
               </h3>
               <p className="text-[#666] leading-relaxed">
                 {isArabic
-                  ? 'هذه الصفحة جاهزة كبداية. يمكن لاحقاً ربط الحفظ بقاعدة البيانات أو إضافة مساعد ذكاء اصطناعي لمعالجة الأسئلة وتصنيفها.'
-                  : 'This page is ready as the starting point. Later, saving can be connected to Firebase or an AI assistant can be added to process and categorize questions.'}
+                  ? 'هذه الصفحة تستخدم ترجمة WEB العامة للوصول إلى الآيات بدون مفتاح API وبدون إعلانات.'
+                  : 'This page uses the public-domain WEB translation for Bible verse lookup without an API key and without ads.'}
               </p>
             </div>
           </div>
@@ -254,7 +419,7 @@ export default function NextGenActivities() {
                       {isArabic ? 'إعداد جلسة أسئلة وأجوبة' : 'Create Q&A Session'}
                     </h2>
                     <p className="text-white/75 text-sm mt-1">
-                      {isArabic ? 'اكتب السؤال، أضف الآيات، ثم اختر التصنيف.' : 'Write the question, add related verses, then select the category.'}
+                      {isArabic ? 'اكتب السؤال، اختر آيات WEB، ثم اختر التصنيف.' : 'Write the question, select WEB verses, then choose the category.'}
                     </p>
                   </div>
                 </div>
@@ -282,76 +447,161 @@ export default function NextGenActivities() {
                 </div>
 
                 <div className="space-y-4">
-                  <div className="p-5 rounded-3xl bg-[#f8eeee] border border-[rgba(139,30,30,0.12)]">
-                    <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-4 mb-4">
-                      <div>
-                        <label className="text-xs font-bold text-[#8b1e1e] uppercase tracking-widest">
-                          {isArabic ? 'أداة Bible Gateway - NIV' : 'Bible Gateway NIV Lookup Widget'}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div>
+                      <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">
+                        {isArabic ? 'محدد آيات WEB' : 'WEB Bible Verse Selector'}
+                      </label>
+                      <p className="text-xs text-gray-400 mt-1">
+                        {isArabic
+                          ? 'ابحث عن السفر، اختر الإصحاح، اختر الآية أو المدى، ثم أضفها كمرجع ونص.'
+                          : 'Search the book, select chapter, select verse or range, then add it as reference and text.'}
+                      </p>
+                    </div>
+                    <span className="px-3 py-1 bg-green-50 text-green-700 rounded-full border border-green-100 text-xs font-bold">
+                      WEB · Public Domain
+                    </span>
+                  </div>
+
+                  <div className="p-5 rounded-3xl bg-stone-50 border border-gray-100 space-y-5">
+                    <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
+                      <div className="lg:col-span-2 space-y-2">
+                        <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+                          {isArabic ? 'السفر' : 'Book'}
                         </label>
-                        <p className="text-sm text-[#6f4a4a] mt-1 leading-relaxed">
-                          {isArabic
-                            ? 'ابحث عن المرجع في NIV بدون API key. بعد إيجاد الآية، انسخ المرجع أو النص إلى حقول الآيات بالأسفل.'
-                            : 'Search NIV without an API key. After finding the passage, copy the reference or text into the verse fields below.'}
-                        </p>
+                        <div className="relative">
+                          <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
+                          <input
+                            type="text"
+                            value={bookSearch}
+                            onChange={e => setBookSearch(e.target.value)}
+                            placeholder={isArabic ? 'اكتب اسم السفر...' : 'Type a few letters, e.g. John'}
+                            className="w-full pl-11 pr-4 py-3 bg-white border border-gray-100 rounded-xl focus:ring-2 focus:ring-[#8b1e1e]/20 outline-none font-bold text-[#641414]"
+                          />
+                        </div>
+                        <div className="max-h-44 overflow-y-auto bg-white rounded-xl border border-gray-100 p-2 space-y-1">
+                          {filteredBooks.map(book => (
+                            <button
+                              key={book.id}
+                              type="button"
+                              onClick={() => selectBook(book)}
+                              className={`w-full text-left px-3 py-2 rounded-lg text-sm font-bold transition-colors ${
+                                selectedBook.id === book.id
+                                  ? 'bg-[#8b1e1e] text-white'
+                                  : 'text-[#641414] hover:bg-[#f8eeee]'
+                              }`}
+                            >
+                              {book.name}
+                            </button>
+                          ))}
+                          {filteredBooks.length === 0 && (
+                            <div className="px-3 py-3 text-sm text-gray-400 italic">
+                              {isArabic ? 'لا توجد أسفار مطابقة.' : 'No matching books.'}
+                            </div>
+                          )}
+                        </div>
                       </div>
-                      <a
-                        href={bibleGatewayUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-white text-[#8b1e1e] rounded-xl font-bold text-sm border border-[rgba(139,30,30,0.14)] hover:bg-[#8b1e1e] hover:text-white transition-colors whitespace-nowrap"
-                      >
-                        <ExternalLink size={16} />
-                        {isArabic ? 'فتح في Bible Gateway' : 'Open in Bible Gateway'}
-                      </a>
+
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+                          {isArabic ? 'الإصحاح' : 'Chapter'}
+                        </label>
+                        <select
+                          value={selectedChapter}
+                          onChange={e => setSelectedChapter(Number(e.target.value))}
+                          className="w-full px-4 py-3 bg-white border border-gray-100 rounded-xl focus:ring-2 focus:ring-[#8b1e1e]/20 outline-none font-bold text-[#641414]"
+                        >
+                          {chapterOptions.map(chapter => (
+                            <option key={chapter} value={chapter}>{chapter}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+                          {isArabic ? 'الآية' : 'Verse Range'}
+                        </label>
+                        <div className="grid grid-cols-2 gap-2">
+                          <select
+                            value={selectedStartVerse}
+                            onChange={e => {
+                              const value = Number(e.target.value);
+                              setSelectedStartVerse(value);
+                              if (selectedEndVerse < value) setSelectedEndVerse(value);
+                            }}
+                            disabled={isFetchingVerses || verseOptions.length === 0}
+                            className="w-full px-3 py-3 bg-white border border-gray-100 rounded-xl focus:ring-2 focus:ring-[#8b1e1e]/20 outline-none font-bold text-[#641414] disabled:opacity-60"
+                          >
+                            {verseOptions.map(verse => (
+                              <option key={verse} value={verse}>{verse}</option>
+                            ))}
+                          </select>
+                          <select
+                            value={selectedEndVerse}
+                            onChange={e => setSelectedEndVerse(Number(e.target.value))}
+                            disabled={isFetchingVerses || verseOptions.length === 0}
+                            className="w-full px-3 py-3 bg-white border border-gray-100 rounded-xl focus:ring-2 focus:ring-[#8b1e1e]/20 outline-none font-bold text-[#641414] disabled:opacity-60"
+                          >
+                            {verseOptions
+                              .filter(verse => verse >= selectedStartVerse)
+                              .map(verse => (
+                                <option key={verse} value={verse}>{verse}</option>
+                              ))}
+                          </select>
+                        </div>
+                      </div>
                     </div>
 
-                    <form onSubmit={handleBibleGatewayLookup} className="flex flex-col sm:flex-row gap-3 mb-4">
-                      <input
-                        type="text"
-                        value={bibleGatewayQuery}
-                        onChange={e => setBibleGatewayQuery(e.target.value)}
-                        placeholder={isArabic ? 'مثال: John 3:16 أو Romans 8:28' : 'Example: John 3:16 or Romans 8:28'}
-                        className="flex-1 px-4 py-3 bg-white border border-[rgba(139,30,30,0.14)] rounded-xl focus:ring-2 focus:ring-[#8b1e1e]/20 outline-none text-[#242424]"
-                      />
-                      <button
-                        type="submit"
-                        className="inline-flex items-center justify-center gap-2 px-5 py-3 bg-[#8b1e1e] text-white rounded-xl font-bold hover:bg-[#641414] active:bg-[#3f0f0f] transition-colors"
-                      >
-                        <Search size={17} />
-                        {isArabic ? 'بحث NIV' : 'Search NIV'}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={addCurrentBibleGatewayReference}
-                        className="inline-flex items-center justify-center gap-2 px-5 py-3 bg-white text-[#8b1e1e] rounded-xl font-bold border border-[rgba(139,30,30,0.14)] hover:bg-[#f1dada] transition-colors"
-                      >
-                        <Plus size={17} />
-                        {isArabic ? 'إضافة المرجع' : 'Add Reference'}
-                      </button>
-                    </form>
+                    <div className="rounded-2xl bg-white border border-gray-100 p-4">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
+                        <div>
+                          <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+                            {isArabic ? 'المعاينة' : 'Preview'}
+                          </div>
+                          <h4 className="text-lg font-bold text-[#8b1e1e] mt-1">{selectedReference}</h4>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={addSelectedWebVerse}
+                          disabled={isFetchingVerses || Boolean(verseFetchError) || chapterVerses.length === 0}
+                          className="inline-flex items-center justify-center gap-2 px-5 py-3 bg-[#8b1e1e] text-white rounded-xl font-bold hover:bg-[#641414] disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+                        >
+                          {isFetchingVerses ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}
+                          {isArabic ? 'إضافة الآية' : 'Add Selected Verse'}
+                        </button>
+                      </div>
 
-                    <div className="overflow-hidden rounded-2xl border border-[rgba(139,30,30,0.14)] bg-white">
-                      <iframe
-                        title="Bible Gateway NIV Lookup"
-                        src={bibleGatewayUrl}
-                        className="w-full h-[520px] bg-white"
-                      />
+                      {isFetchingVerses && (
+                        <div className="flex items-center gap-2 text-sm text-gray-500">
+                          <Loader2 size={16} className="animate-spin" />
+                          {isArabic ? 'جار تحميل الآيات...' : 'Loading verses...'}
+                        </div>
+                      )}
+
+                      {verseFetchError && (
+                        <div className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-xl p-3">
+                          {verseFetchError}
+                        </div>
+                      )}
+
+                      {!isFetchingVerses && !verseFetchError && chapterVerses.length > 0 && (
+                        <div className="max-h-56 overflow-y-auto text-sm leading-relaxed text-[#333] whitespace-pre-wrap bg-stone-50 rounded-xl p-4 border border-gray-100">
+                          {chapterVerses
+                            .filter(verse => verse.verse >= Math.min(selectedStartVerse, selectedEndVerse) && verse.verse <= Math.max(selectedStartVerse, selectedEndVerse))
+                            .map(verse => `${verse.verse}. ${verse.text}`)
+                            .join('\n')}
+                        </div>
+                      )}
                     </div>
-
-                    <p className="text-[11px] text-[#8b1e1e]/70 mt-3 leading-relaxed">
-                      {isArabic
-                        ? 'إذا منع المتصفح عرض Bible Gateway داخل الصفحة، استخدم زر الفتح في Bible Gateway بالأعلى. هذا لا يحتاج API key ولا يوقف الصفحة.'
-                        : 'If the browser blocks Bible Gateway from displaying inside the page, use the open button above. This uses no API key and does not block the page.'}
-                    </p>
                   </div>
 
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     <div>
                       <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">
-                        {isArabic ? 'آيات مرتبطة' : 'Related Bible Verses'}
+                        {isArabic ? 'الآيات المرتبطة المحفوظة' : 'Saved Related Verses'}
                       </label>
                       <p className="text-xs text-gray-400 mt-1">
-                        {isArabic ? 'أضف مرجع الآية والنص المرتبط بالسؤال.' : 'Add the verse reference and related verse text.'}
+                        {isArabic ? 'يمكنك تعديل المرجع أو النص بعد إضافته.' : 'You can edit the reference or text after adding it.'}
                       </p>
                     </div>
                     <button
@@ -360,7 +610,7 @@ export default function NextGenActivities() {
                       className="inline-flex items-center gap-2 px-4 py-2 bg-[#f8eeee] text-[#8b1e1e] rounded-xl font-bold text-sm hover:bg-[#8b1e1e] hover:text-white transition-colors"
                     >
                       <Plus size={16} />
-                      {isArabic ? 'إضافة آية' : 'Add Verse'}
+                      {isArabic ? 'إضافة آية يدوياً' : 'Add Manual Verse'}
                     </button>
                   </div>
 
@@ -384,14 +634,14 @@ export default function NextGenActivities() {
                             type="text"
                             value={verse.reference}
                             onChange={e => updateVerse(verse.id, 'reference', e.target.value)}
-                            placeholder={isArabic ? 'مثال: يوحنا 3:16' : 'Example: John 3:16'}
+                            placeholder={isArabic ? 'مثال: يوحنا 3:16 (WEB)' : 'Example: John 3:16 (WEB)'}
                             className="px-4 py-3 bg-white border border-gray-100 rounded-xl focus:ring-2 focus:ring-[#8b1e1e]/20 outline-none md:col-span-1"
                           />
                           <textarea
                             value={verse.text}
                             onChange={e => updateVerse(verse.id, 'text', e.target.value)}
-                            rows={2}
-                            placeholder={isArabic ? 'نص الآية أو الملاحظة...' : 'Verse text or note...'}
+                            rows={3}
+                            placeholder={isArabic ? 'نص الآية...' : 'Verse text...'}
                             className="px-4 py-3 bg-white border border-gray-100 rounded-xl focus:ring-2 focus:ring-[#8b1e1e]/20 outline-none resize-none md:col-span-2"
                           />
                         </div>
