@@ -9,6 +9,7 @@ import PrivacyPolicy from './pages/PrivacyPolicy';
 import TermsOfService from './pages/TermsOfService';
 import GuidePage from './pages/GuidePage';
 import BookingCalendar from './pages/BookingCalendar';
+import NextGenActivities from './pages/NextGenActivities';
 import { auth, signInWithGoogle, signInWithEmail, signUpWithEmail } from './firebase';
 import { ref, onValue, set } from 'firebase/database';
 import { database } from './firebase';
@@ -253,6 +254,14 @@ function AppRoutes() {
         element={
           <Layout activeTab="booking" isAdmin={false} isSuperAdmin={false}>
             <BookingCalendar />
+          </Layout>
+        }
+      />
+      <Route
+        path="/nextgen-activities"
+        element={
+          <Layout activeTab="nextgen-activities" isAdmin={false} isSuperAdmin={false}>
+            <NextGenActivities />
           </Layout>
         }
       />
