@@ -15,7 +15,6 @@ import {
   storeTokens,
   clearTokens,
   sendGmailEmail,
-  sendMeetingConfirmationViaEmailJS,
   type GmailTokens,
 } from '../services/gmail';
 import PageTitle from './PageTitle';
@@ -74,6 +73,15 @@ const FULL_DAY_TIME_OPTIONS = buildTimeOptions(0, 23.5);
 
 function slotOverlaps(startA: number, endA: number, startB: number, endB: number): boolean {
   return startA < endB && endA > startB;
+}
+
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
 }
 
 interface Participant {
@@ -385,18 +393,18 @@ export default function Calendar() {
     subject: string;
     requesterName: string;
     meetingTitle: string;
-    meetingDateAr: string;
-    meetingDateEn: string;
-    meetingTimeAr: string;
-    meetingTimeEn: string;
-    meetingLocationAr: string;
-    meetingLocationEn: string;
+    meetingType: string;
+    meetingDate: string;
+    meetingTime: string;
+    meetingLocation: string;
     meetingLink: string;
-    meetingConfirmation: string;
+    fullReport: string;
+    htmlBody: string;
   } => {
     const requesterName = (meeting as any).requestName || '';
     const displayName = requesterName || (displayLocale === 'ar' ? 'صديقنا العزيز' : 'Friend');
     const meetingTitle = getMeetingDisplayTitle(meeting) || t('calendar.meetingWithPastor');
+    const meetingType = 'اجتماع مع Pastor / Meeting with Pastor';
     const dateTextEn = meeting.date ? format(parseISO(meeting.date), 'EEEE, MMMM d, yyyy', { locale: enUS }) : '';
     const dateTextAr = meeting.date ? format(parseISO(meeting.date), 'EEEE, MMMM d, yyyy', { locale: ar }) : '';
     const timeTextEn = timeRangeToLabel(meeting.startTime, meeting.endTime, 'en');
@@ -404,15 +412,18 @@ export default function Calendar() {
     const meetingLink = meeting.meetLink || '';
     const locationTextEn = meeting.location || 'Online meeting';
     const locationTextAr = meeting.location || 'اجتماع عبر الإنترنت';
+    const meetingDate = `${dateTextAr} / ${dateTextEn}`;
+    const meetingTime = `${timeTextAr} / ${timeTextEn}`;
+    const meetingLocation = `${locationTextAr} / ${locationTextEn}`;
 
-    const meetingConfirmation = [
+    const fullReport = [
       'تأكيد موعد الاجتماع',
       '=========================================',
       '',
       `مرحباً ${displayName}،`,
       '',
-      'نود تأكيد موعد اجتماعك مع القس بالتفاصيل التالية:',
-      `نوع الاجتماع: اجتماع مع القس`,
+      'نود تأكيد موعد اجتماعك مع Pastor بالتفاصيل التالية:',
+      `نوع الاجتماع: ${meetingType}`,
       `التاريخ: ${dateTextAr}`,
       `الوقت: ${timeTextAr}`,
       `المكان: ${locationTextAr}`,
@@ -427,28 +438,94 @@ export default function Calendar() {
       '',
       `Hi ${displayName},`,
       '',
-      'We would like to confirm your meeting with Pastor at the following time:',
-      'Meeting type: Meeting with Pastor',
+      'We would like to confirm your meeting with Pastor using the details below:',
+      `Meeting Type: ${meetingType}`,
       `Date: ${dateTextEn}`,
       `Time: ${timeTextEn}`,
       `Location: ${locationTextEn}`,
-      meetingLink ? `Here is the link for joining: ${meetingLink}` : 'The joining link will be sent later.',
+      meetingLink ? `Joining Link: ${meetingLink}` : 'Joining Link: The joining link will be sent later.',
       '',
       'Thank you, and we look forward to meeting with you.',
     ].join('\n');
 
+    const safeName = escapeHtml(displayName);
+    const safeMeetingType = escapeHtml(meetingType);
+    const safeMeetingDate = escapeHtml(meetingDate);
+    const safeMeetingTime = escapeHtml(meetingTime);
+    const safeMeetingLocation = escapeHtml(meetingLocation);
+    const safeMeetLink = escapeHtml(meetingLink);
+    const safeFullReport = escapeHtml(fullReport);
+    const meetingLinkHtml = meetingLink
+      ? `<a href="${safeMeetLink}" style="color: #8b1e1e; font-weight: 700; word-break: break-all;">${safeMeetLink}</a>`
+      : '<span style="color: #666666; font-weight: 700;">سيتم إرساله لاحقاً / Will be sent later</span>';
+
+    const htmlBody = `
+<div style="font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 14px; color: #242424; line-height: 1.6; max-width: 680px; margin: 0 auto;">
+  <div style="padding: 18px 20px; background-color: #8b1e1e; color: #ffffff; border-radius: 12px 12px 0 0;">
+    <h2 style="margin: 0; font-size: 20px;">تأكيد موعد الاجتماع / Meeting Confirmation</h2>
+    <div style="margin-top: 6px; font-size: 13px;">اجتماع مع Pastor / Meeting with Pastor</div>
+  </div>
+
+  <div style="padding: 20px; border: 1px solid #dddddd; border-top: 0; border-radius: 0 0 12px 12px; background-color: #ffffff;">
+    <table role="presentation" style="width: 100%; border-collapse: collapse; margin-bottom: 18px;">
+      <tr>
+        <td style="padding: 8px 0; width: 190px; color: #666666; font-weight: 700;">الاسم / Name</td>
+        <td style="padding: 8px 0;">${safeName}</td>
+      </tr>
+      <tr>
+        <td style="padding: 8px 0; color: #666666; font-weight: 700;">نوع الاجتماع / Meeting Type</td>
+        <td style="padding: 8px 0;">${safeMeetingType}</td>
+      </tr>
+      <tr>
+        <td style="padding: 8px 0; color: #666666; font-weight: 700;">التاريخ / Date</td>
+        <td style="padding: 8px 0;">${safeMeetingDate}</td>
+      </tr>
+      <tr>
+        <td style="padding: 8px 0; color: #666666; font-weight: 700;">الوقت / Time</td>
+        <td style="padding: 8px 0;">${safeMeetingTime}</td>
+      </tr>
+      <tr>
+        <td style="padding: 8px 0; color: #666666; font-weight: 700;">المكان / Location</td>
+        <td style="padding: 8px 0;">${safeMeetingLocation}</td>
+      </tr>
+    </table>
+
+    <div style="margin: 20px 0; padding: 16px; background-color: #f8eeee; border-left: 5px solid #8b1e1e; border-radius: 10px;">
+      <h3 style="margin: 0 0 10px; color: #641414; font-size: 17px;">رابط الانضمام / Joining Link</h3>
+
+      <div style="margin-bottom: 8px;">
+        ${meetingLinkHtml}
+      </div>
+    </div>
+
+    <div style="margin-top: 22px;">
+      <h3 style="margin: 0 0 10px; color: #8b1e1e; font-size: 17px;">تأكيد موعد الاجتماع / Meeting Confirmation</h3>
+
+      <div style="white-space: pre-wrap; padding: 16px; background-color: #fafafa; border: 1px solid #dddddd; border-radius: 10px; font-size: 14px;">
+${safeFullReport}
+      </div>
+    </div>
+
+    <div style="margin-top: 22px; color: #777777; font-size: 12px;">
+      تم إرسال هذا البريد تلقائياً لتأكيد موعد اجتماعك مع Pastor.
+      <br />
+      This email was automatically generated to confirm your meeting with Pastor.
+    </div>
+  </div>
+</div>
+    `.trim();
+
     return {
-      subject: 'تأكيد موعد الاجتماع / Meeting Confirmation',
+      subject: `LINC Meeting Confirmation - ${displayName}`,
       requesterName: displayName,
       meetingTitle,
-      meetingDateAr: dateTextAr,
-      meetingDateEn: dateTextEn,
-      meetingTimeAr: timeTextAr,
-      meetingTimeEn: timeTextEn,
-      meetingLocationAr: locationTextAr,
-      meetingLocationEn: locationTextEn,
+      meetingType,
+      meetingDate,
+      meetingTime,
+      meetingLocation,
       meetingLink,
-      meetingConfirmation,
+      fullReport,
+      htmlBody,
     };
   };
 
@@ -643,24 +720,12 @@ export default function Calendar() {
     try {
       const confirmationEmail = buildMeetingConfirmationEmail(meeting);
 
-      await sendMeetingConfirmationViaEmailJS(recipientEmail, {
-        subject: confirmationEmail.subject,
-        fullName: confirmationEmail.requesterName,
-        emailTitle: 'تأكيد موعد الاجتماع / Meeting Confirmation',
-        reportTitle: 'تأكيد موعد الاجتماع / Meeting Confirmation',
-        messageType: 'Meeting Confirmation',
-        meetingTitle: confirmationEmail.meetingTitle,
-        meetingWith: 'Pastor',
-        meetingDateArabic: confirmationEmail.meetingDateAr,
-        meetingDateEnglish: confirmationEmail.meetingDateEn,
-        meetingTimeArabic: confirmationEmail.meetingTimeAr,
-        meetingTimeEnglish: confirmationEmail.meetingTimeEn,
-        meetingLocationArabic: confirmationEmail.meetingLocationAr,
-        meetingLocationEnglish: confirmationEmail.meetingLocationEn,
-        meetLink: confirmationEmail.meetingLink,
-        meetingConfirmation: confirmationEmail.meetingConfirmation,
-        fullReport: confirmationEmail.meetingConfirmation,
-      });
+      if (!googleTokens) {
+        alert(displayLocale === 'ar' ? 'يرجى الاتصال بحساب Google أولاً.' : 'Please connect Google first.');
+        return;
+      }
+
+      await sendGmailEmail(googleTokens, recipientEmail, confirmationEmail.subject, confirmationEmail.htmlBody);
 
       const { update } = await import('firebase/database');
       await update(ref(database, `meetings/${meeting.id}`), {
@@ -697,6 +762,11 @@ export default function Calendar() {
 
     if (!shouldSend) return;
 
+    if (!googleTokens) {
+      alert(displayLocale === 'ar' ? 'يرجى الاتصال بحساب Google أولاً.' : 'Please connect Google first.');
+      return;
+    }
+
     setLoading(true);
 
     let sentCount = 0;
@@ -711,24 +781,11 @@ export default function Calendar() {
         try {
           const confirmationEmail = buildMeetingConfirmationEmail(meeting);
 
-          await sendMeetingConfirmationViaEmailJS(recipientEmail, {
-            subject: confirmationEmail.subject,
-            fullName: confirmationEmail.requesterName,
-            emailTitle: 'تأكيد موعد الاجتماع / Meeting Confirmation',
-            reportTitle: 'تأكيد موعد الاجتماع / Meeting Confirmation',
-            messageType: 'Meeting Confirmation',
-            meetingTitle: confirmationEmail.meetingTitle,
-            meetingWith: 'Pastor',
-            meetingDateArabic: confirmationEmail.meetingDateAr,
-            meetingDateEnglish: confirmationEmail.meetingDateEn,
-            meetingTimeArabic: confirmationEmail.meetingTimeAr,
-            meetingTimeEnglish: confirmationEmail.meetingTimeEn,
-            meetingLocationArabic: confirmationEmail.meetingLocationAr,
-            meetingLocationEnglish: confirmationEmail.meetingLocationEn,
-            meetLink: confirmationEmail.meetingLink,
-            meetingConfirmation: confirmationEmail.meetingConfirmation,
-            fullReport: confirmationEmail.meetingConfirmation,
-          });
+          if (!googleTokens) {
+            throw new Error('Google account is not connected.');
+          }
+
+          await sendGmailEmail(googleTokens, recipientEmail, confirmationEmail.subject, confirmationEmail.htmlBody);
 
           await update(ref(database, `meetings/${meeting.id}`), {
             acknowledged: true,
