@@ -52,6 +52,7 @@ export default function BookingCalendar() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDay, setSelectedDay] = useState<Date | null>(null);
   const [showDayPopup, setShowDayPopup] = useState(false);
+  const [showBookingFormPopup, setShowBookingFormPopup] = useState(false);
   const [scheduleBlocks, setScheduleBlocks] = useState<ScheduleBlock[]>([]);
   const [selectedSlot, setSelectedSlot] = useState<number | null>(null);
   const [name, setName] = useState('');
@@ -155,6 +156,7 @@ export default function BookingCalendar() {
     if (selectedDay && isBefore(startOfDay(selectedDay), startOfDay(new Date()))) {
       setIsPastDay(true);
       setShowDayPopup(false);
+      setShowBookingFormPopup(false);
     } else {
       setIsPastDay(false);
     }
@@ -251,6 +253,8 @@ export default function BookingCalendar() {
 
   const handlePopupSlotClick = (hour: number) => {
     handleSlotClick(hour);
+    setShowDayPopup(false);
+    setShowBookingFormPopup(true);
   };
 
   const closeSelectedDay = () => {
@@ -258,6 +262,7 @@ export default function BookingCalendar() {
     setSelectedSlot(null);
     setSuccess(false);
     setShowDayPopup(false);
+    setShowBookingFormPopup(false);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -299,7 +304,8 @@ export default function BookingCalendar() {
       setEmail('');
       setReason('');
       setSelectedSlot(null);
-      setShowDayPopup(true);
+      setShowDayPopup(false);
+      setShowBookingFormPopup(true);
     } catch (err) {
       console.error(err);
       alert(t('booking.failed'));
@@ -367,134 +373,34 @@ export default function BookingCalendar() {
               </div>
             </div>
 
-            <div className="max-h-[68vh] overflow-y-auto p-6">
-              {success ? (
-                <motion.div
-                  initial={{ scale: 0.96, opacity: 0 }}
-                  animate={{ scale: 1, opacity: 1 }}
-                  className="text-center py-8"
-                >
-                  <div className="w-16 h-16 bg-green-50 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <CheckCircle size={32} className="text-green-600" />
-                  </div>
-                  <h4 className="text-xl font-bold text-[#8b1e1e] mb-2">{t('booking.successTitle')}</h4>
-                  <p className="text-gray-500 text-sm">{t('booking.successDesc')}</p>
-                  <button
-                    type="button"
-                    onClick={() => setShowDayPopup(false)}
-                    className="mt-6 px-5 py-2.5 rounded-xl bg-[#8b1e1e] text-white font-bold text-sm hover:bg-[#641414] transition-colors"
-                  >
-                    {t('booking.close')}
-                  </button>
-                </motion.div>
-              ) : availableSlotHours.length > 0 ? (
-                <div className="space-y-6">
-                  <div>
-                    <div className="flex items-center gap-2 mb-3">
-                      <Clock size={16} className="text-[#8b1e1e]" />
-                      <h4 className="text-sm font-bold text-gray-500 uppercase tracking-widest">
-                        {t('booking.legendAvailable')} {t('booking.timeLabel')}
-                      </h4>
-                    </div>
+            <div className="max-h-[62vh] overflow-y-auto p-6">
+              {availableSlotHours.length > 0 ? (
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                  {availableSlotHours.map(hour => {
+                    const isSel = selectedSlot === hour;
 
-                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-                      {availableSlotHours.map(hour => {
-                        const isSel = selectedSlot === hour;
-
-                        return (
-                          <button
-                            type="button"
-                            key={hour}
-                            onClick={() => handlePopupSlotClick(hour)}
-                            className={`rounded-2xl border p-4 text-sm font-bold transition-all ${
-                              isSel
-                                ? 'scale-[1.02] border-[#8b1e1e] bg-[#8b1e1e] text-white shadow-lg'
-                                : 'border-green-200 bg-green-50 text-green-700 hover:-translate-y-0.5 hover:border-green-300 hover:bg-green-100 hover:shadow-md'
-                            }`}
-                          >
-                            <div className="flex items-center justify-center gap-2">
-                              <Clock size={15} />
-                              <span>{hourToLabel(hour, displayLocale)}</span>
-                            </div>
-
-                            <div className={`mt-1 text-[10px] ${isSel ? 'text-white/80' : 'text-green-500'}`}>
-                              {t('booking.slotAvailable')}
-                            </div>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  {selectedSlot !== null && (
-                    <motion.div
-                      initial={{ opacity: 0, y: 12 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      className="bg-stone-50 rounded-2xl p-5 border border-gray-100"
-                    >
-                      <h4 className="font-bold text-sm text-gray-500 mb-3 uppercase tracking-widest">
-                        {t('booking.bookFor')} {hourToLabel(selectedSlot, displayLocale)}
-                      </h4>
-
-                      <form onSubmit={handleSubmit} className="space-y-3">
-                        <div>
-                          <label className="text-xs font-bold text-gray-400 uppercase tracking-widest flex items-center gap-1 mb-1">
-                            <User size={12} /> {t('booking.name')}
-                          </label>
-                          <input
-                            required
-                            type="text"
-                            className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#8B1E1E]/20 outline-none text-sm"
-                            value={name}
-                            onChange={e => setName(e.target.value)}
-                            placeholder={t('booking.namePlaceholder')}
-                          />
+                    return (
+                      <button
+                        type="button"
+                        key={hour}
+                        onClick={() => handlePopupSlotClick(hour)}
+                        className={`rounded-2xl border p-4 text-sm font-bold transition-all ${
+                          isSel
+                            ? 'scale-[1.02] border-[#8b1e1e] bg-[#8b1e1e] text-white shadow-lg'
+                            : 'border-green-200 bg-green-50 text-green-700 hover:-translate-y-0.5 hover:border-green-300 hover:bg-green-100 hover:shadow-md'
+                        }`}
+                      >
+                        <div className="flex items-center justify-center gap-2">
+                          <Clock size={15} />
+                          <span>{hourToLabel(hour, displayLocale)}</span>
                         </div>
 
-                        <div>
-                          <label className="text-xs font-bold text-gray-400 uppercase tracking-widest flex items-center gap-1 mb-1">
-                            <Mail size={12} /> {t('booking.email')}
-                          </label>
-                          <input
-                            required
-                            type="email"
-                            className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#8B1E1E]/20 outline-none text-sm"
-                            value={email}
-                            onChange={e => setEmail(e.target.value)}
-                            placeholder={t('booking.emailPlaceholder')}
-                          />
+                        <div className={`mt-1 text-[10px] ${isSel ? 'text-white/80' : 'text-green-500'}`}>
+                          {t('booking.slotAvailable')}
                         </div>
-
-                        <div>
-                          <label className="text-xs font-bold text-gray-400 uppercase tracking-widest flex items-center gap-1 mb-1">
-                            <MessageSquare size={12} /> {t('booking.reason')}
-                          </label>
-                          <textarea
-                            required
-                            rows={2}
-                            className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#8B1E1E]/20 outline-none text-sm resize-none"
-                            value={reason}
-                            onChange={e => setReason(e.target.value)}
-                            placeholder={t('booking.reasonPlaceholder')}
-                          />
-                        </div>
-
-                        <button
-                          disabled={loading}
-                          type="submit"
-                          className="w-full py-3 bg-[#8B1E1E] text-white rounded-xl font-bold shadow hover:bg-[#641414] transition-all flex items-center justify-center gap-2 text-sm disabled:opacity-60 disabled:cursor-not-allowed"
-                        >
-                          {loading ? (
-                            <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white"></div>
-                          ) : (
-                            <>
-                              <CheckCircle size={14} /> {t('booking.submit')}
-                            </>
-                          )}
-                        </button>
-                      </form>
-                    </motion.div>
-                  )}
+                      </button>
+                    );
+                  })}
                 </div>
               ) : (
                 <div className="py-10 text-center">
@@ -510,6 +416,159 @@ export default function BookingCalendar() {
                     {t('booking.legendInfeasible')}
                   </p>
                 </div>
+              )}
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+
+  const bookingFormPopup = (
+    <AnimatePresence>
+      {selectedDay && !isPastDay && showBookingFormPopup && selectedSlot !== null && (
+        <motion.div
+          key="booking-form-popup-overlay"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/45 backdrop-blur-md px-4 py-6"
+          onClick={() => {
+            if (!loading) setShowBookingFormPopup(false);
+          }}
+          dir={dir}
+          style={{ fontFamily: 'Arial, sans-serif' }}
+        >
+          <motion.div
+            key="booking-form-popup-panel"
+            initial={{ opacity: 0, scale: 0.94, y: 18 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.94, y: 18 }}
+            transition={{ type: 'spring', stiffness: 260, damping: 24 }}
+            className="w-full max-w-xl overflow-hidden rounded-3xl bg-white shadow-2xl border border-white/70"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="relative bg-[#8b1e1e] px-6 py-5 text-white">
+              <button
+                type="button"
+                disabled={loading}
+                onClick={() => setShowBookingFormPopup(false)}
+                className="absolute top-4 end-4 rounded-full bg-white/15 p-2 transition-colors hover:bg-white/25 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <X size={18} />
+              </button>
+
+              <div className="flex items-center gap-3 pe-10">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white/15">
+                  <CheckCircle size={24} />
+                </div>
+
+                <div>
+                  <h3 className="text-xl font-bold">
+                    {t('booking.bookFor')} {hourToLabel(selectedSlot, displayLocale)}
+                  </h3>
+                  <p className="mt-1 text-sm text-white/80">
+                    {selectedDayTitle}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-6">
+              {success ? (
+                <motion.div
+                  initial={{ scale: 0.96, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  className="text-center py-8"
+                >
+                  <div className="w-16 h-16 bg-green-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <CheckCircle size={32} className="text-green-600" />
+                  </div>
+                  <h4 className="text-xl font-bold text-[#8b1e1e] mb-2">{t('booking.successTitle')}</h4>
+                  <p className="text-gray-500 text-sm">{t('booking.successDesc')}</p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowBookingFormPopup(false);
+                      setSuccess(false);
+                    }}
+                    className="mt-6 px-5 py-2.5 rounded-xl bg-[#8b1e1e] text-white font-bold text-sm hover:bg-[#641414] transition-colors"
+                  >
+                    {t('booking.close')}
+                  </button>
+                </motion.div>
+              ) : (
+                <form onSubmit={handleSubmit} className="space-y-3">
+                  <div>
+                    <label className="text-xs font-bold text-gray-400 uppercase tracking-widest flex items-center gap-1 mb-1">
+                      <User size={12} /> {t('booking.name')}
+                    </label>
+                    <input
+                      required
+                      type="text"
+                      className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#8B1E1E]/20 outline-none text-sm"
+                      value={name}
+                      onChange={e => setName(e.target.value)}
+                      placeholder={t('booking.namePlaceholder')}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-bold text-gray-400 uppercase tracking-widest flex items-center gap-1 mb-1">
+                      <Mail size={12} /> {t('booking.email')}
+                    </label>
+                    <input
+                      required
+                      type="email"
+                      className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#8B1E1E]/20 outline-none text-sm"
+                      value={email}
+                      onChange={e => setEmail(e.target.value)}
+                      placeholder={t('booking.emailPlaceholder')}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-bold text-gray-400 uppercase tracking-widest flex items-center gap-1 mb-1">
+                      <MessageSquare size={12} /> {t('booking.reason')}
+                    </label>
+                    <textarea
+                      required
+                      rows={3}
+                      className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#8B1E1E]/20 outline-none text-sm resize-none"
+                      value={reason}
+                      onChange={e => setReason(e.target.value)}
+                      placeholder={t('booking.reasonPlaceholder')}
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+                    <button
+                      type="button"
+                      disabled={loading}
+                      onClick={() => {
+                        setShowBookingFormPopup(false);
+                        setShowDayPopup(true);
+                      }}
+                      className="py-3 bg-gray-100 text-gray-700 rounded-xl font-bold hover:bg-gray-200 transition-all text-sm disabled:opacity-60 disabled:cursor-not-allowed"
+                    >
+                      {t('booking.close')}
+                    </button>
+
+                    <button
+                      disabled={loading}
+                      type="submit"
+                      className="py-3 bg-[#8B1E1E] text-white rounded-xl font-bold shadow hover:bg-[#641414] transition-all flex items-center justify-center gap-2 text-sm disabled:opacity-60 disabled:cursor-not-allowed"
+                    >
+                      {loading ? (
+                        <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white"></div>
+                      ) : (
+                        <>
+                          <CheckCircle size={14} /> {t('booking.submit')}
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </form>
               )}
             </div>
           </motion.div>
@@ -740,6 +799,7 @@ export default function BookingCalendar() {
       </div>
 
       {dayPopup}
+      {bookingFormPopup}
     </>
   );
 }
