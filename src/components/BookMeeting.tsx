@@ -60,8 +60,10 @@ interface BookMeetingProps {
 export default function BookMeeting({ isOpen, onClose, preSelectedDate }: BookMeetingProps = {}) {
   const { t, dir, locale } = useI18n();
   const displayLocale = locale as 'en' | 'ar';
+
   const [currentDate, setCurrentDate] = useState(preSelectedDate ? new Date(preSelectedDate) : new Date());
   const [selectedDay, setSelectedDay] = useState<Date | null>(null);
+  const [showDayPopup, setShowDayPopup] = useState(false);
   const [meetingBlocks, setMeetingBlocks] = useState<BusyBlock[]>([]);
   const [pendingBlocks, setPendingBlocks] = useState<BusyBlock[]>([]);
   const [unavailableBlocks, setUnavailableBlocks] = useState<BusyBlock[]>([]);
@@ -197,6 +199,7 @@ export default function BookMeeting({ isOpen, onClose, preSelectedDate }: BookMe
         setPastors(emails);
       }
     });
+
     return () => unsubscribe();
   }, []);
 
@@ -205,12 +208,17 @@ export default function BookMeeting({ isOpen, onClose, preSelectedDate }: BookMe
       const d = new Date(preSelectedDate);
       setSelectedDay(d);
       setCurrentDate(d);
+
+      if (!isBefore(startOfDay(d), startOfDay(new Date()))) {
+        setShowDayPopup(true);
+      }
     }
   }, [preSelectedDate]);
 
   useEffect(() => {
     if (selectedDay && isBefore(startOfDay(selectedDay), startOfDay(new Date()))) {
       setIsPastDay(true);
+      setShowDayPopup(false);
     } else {
       setIsPastDay(false);
     }
@@ -280,23 +288,46 @@ export default function BookMeeting({ isOpen, onClose, preSelectedDate }: BookMe
     return false;
   };
 
+  const slotStatus = (day: Date, hour: number): 'booked' | 'infeasible' | 'available' => {
+    if (isSlotBooked(day, hour)) return 'booked';
+    if (isSlotInfeasible(day, hour)) return 'infeasible';
+    return 'available';
+  };
+
   const handleDayClick = (day: Date) => {
     if (isBefore(startOfDay(day), startOfDay(new Date()))) return;
+
     setSelectedDay(day);
     setSelectedSlot(null);
     setSuccess(false);
+    setShowDayPopup(true);
   };
 
   const handleSlotClick = (hour: number) => {
     if (!selectedDay || isSlotBooked(selectedDay, hour) || isSlotInfeasible(selectedDay, hour)) return;
+
     setSelectedSlot(hour);
     setSuccess(false);
+  };
+
+  const handlePopupSlotClick = (hour: number) => {
+    handleSlotClick(hour);
+    setShowDayPopup(false);
+  };
+
+  const closeSelectedDay = () => {
+    setSelectedDay(null);
+    setSelectedSlot(null);
+    setSuccess(false);
+    setShowDayPopup(false);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedDay || selectedSlot === null) return;
+
     setLoading(true);
+
     try {
       if (isSlotBooked(selectedDay, selectedSlot) || isSlotInfeasible(selectedDay, selectedSlot)) {
         alert(t('booking.timeConflict'));
@@ -314,6 +345,7 @@ export default function BookMeeting({ isOpen, onClose, preSelectedDate }: BookMe
         status: 'pending',
         createdAt: Date.now(),
       };
+
       await push(ref(database, 'meetingRequests/'), request);
 
       for (const pastorEmail of pastors) {
@@ -332,17 +364,12 @@ export default function BookMeeting({ isOpen, onClose, preSelectedDate }: BookMe
       setEmail('');
       setReason('');
       setSelectedSlot(null);
+      setShowDayPopup(false);
     } catch {
       alert(t('booking.failed'));
     } finally {
       setLoading(false);
     }
-  };
-
-  const slotStatus = (day: Date, hour: number): 'booked' | 'infeasible' | 'available' => {
-    if (isSlotBooked(day, hour)) return 'booked';
-    if (isSlotInfeasible(day, hour)) return 'infeasible';
-    return 'available';
   };
 
   const daySlots = selectedDay ? busyBlocks
@@ -352,6 +379,110 @@ export default function BookMeeting({ isOpen, onClose, preSelectedDate }: BookMe
   const slotHours = Array.from(
     { length: Math.floor((BUSINESS_END - BUSINESS_START) / SLOT_DURATION) },
     (_, index) => BUSINESS_START + index * SLOT_DURATION
+  );
+
+  const availableSlotHours = selectedDay
+    ? slotHours.filter(hour => slotStatus(selectedDay, hour) === 'available')
+    : [];
+
+  const selectedDayFormatted = selectedDay ? format(selectedDay, 'EEEE, MMMM d, yyyy') : '';
+
+  const dayPopup = (
+    <AnimatePresence>
+      {selectedDay && !isPastDay && showDayPopup && (
+        <motion.div
+          key="day-popup-overlay"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/45 backdrop-blur-md px-4 py-6"
+          onClick={() => setShowDayPopup(false)}
+          dir={dir}
+          style={{ fontFamily: 'Arial, sans-serif' }}
+        >
+          <motion.div
+            key="day-popup-panel"
+            initial={{ opacity: 0, scale: 0.94, y: 18 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.94, y: 18 }}
+            transition={{ type: 'spring', stiffness: 260, damping: 24 }}
+            className="w-full max-w-2xl max-h-[85vh] overflow-hidden rounded-3xl bg-white shadow-2xl border border-white/70"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="relative bg-[#8b1e1e] px-6 py-5 text-white">
+              <button
+                type="button"
+                onClick={() => setShowDayPopup(false)}
+                className="absolute top-4 end-4 rounded-full bg-white/15 p-2 transition-colors hover:bg-white/25"
+              >
+                <X size={18} />
+              </button>
+
+              <div className="flex items-center gap-3 pe-10">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white/15">
+                  <Clock size={24} />
+                </div>
+
+                <div>
+                  <h3 className="text-xl font-bold">
+                    {t('booking.legendAvailable')} {t('booking.timeLabel')}
+                  </h3>
+                  <p className="mt-1 text-sm text-white/80">
+                    {selectedDayFormatted}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="max-h-[62vh] overflow-y-auto p-6">
+              {availableSlotHours.length > 0 ? (
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                  {availableSlotHours.map(hour => {
+                    const isSel = selectedSlot === hour;
+
+                    return (
+                      <button
+                        type="button"
+                        key={hour}
+                        onClick={() => handlePopupSlotClick(hour)}
+                        className={`rounded-2xl border p-4 text-sm font-bold transition-all ${
+                          isSel
+                            ? 'scale-[1.02] border-[#8b1e1e] bg-[#8b1e1e] text-white shadow-lg'
+                            : 'border-green-200 bg-green-50 text-green-700 hover:-translate-y-0.5 hover:border-green-300 hover:bg-green-100 hover:shadow-md'
+                        }`}
+                      >
+                        <div className="flex items-center justify-center gap-2">
+                          <Clock size={15} />
+                          <span>{hourToLabel(hour, displayLocale)}</span>
+                        </div>
+
+                        <div className={`mt-1 text-[10px] ${isSel ? 'text-white/80' : 'text-green-500'}`}>
+                          {t('booking.slotAvailable')}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="py-10 text-center">
+                  <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-red-50">
+                    <AlertCircle size={30} className="text-red-500" />
+                  </div>
+
+                  <p className="font-bold text-[#8b1e1e]">
+                    {t('booking.unavailable')}
+                  </p>
+
+                  <p className="mt-2 text-sm text-gray-500">
+                    {t('booking.legendInfeasible')}
+                  </p>
+                </div>
+              )}
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 
   const content = (
@@ -364,6 +495,7 @@ export default function BookMeeting({ isOpen, onClose, preSelectedDate }: BookMe
           </h1>
           <p className="text-gray-500 text-sm mt-1">{t('booking.pageDesc')}</p>
         </div>
+
         <button
           onClick={() => setShowAi(true)}
           className="flex items-center gap-2 bg-purple-50 hover:bg-purple-100 text-purple-700 px-5 py-3 rounded-xl font-bold transition-colors text-sm border border-purple-200"
@@ -374,19 +506,42 @@ export default function BookMeeting({ isOpen, onClose, preSelectedDate }: BookMe
       </div>
 
       <div className="flex flex-wrap justify-center gap-4 text-xs font-bold">
-        <div className="flex items-center gap-2"><div className="w-4 h-4 rounded bg-red-50 border border-red-200"></div>{t('booking.legendInfeasible')}</div>
-        <div className="flex items-center gap-2"><div className="w-4 h-4 rounded bg-green-50 border border-green-200"></div>{t('booking.legendAvailable')}</div>
-        <div className="flex items-center gap-2"><div className="w-4 h-4 rounded bg-gray-200 border border-gray-300"></div>{t('booking.legendBooked')}</div>
+        <div className="flex items-center gap-2">
+          <div className="w-4 h-4 rounded bg-red-50 border border-red-200"></div>
+          {t('booking.legendInfeasible')}
+        </div>
+
+        <div className="flex items-center gap-2">
+          <div className="w-4 h-4 rounded bg-green-50 border border-green-200"></div>
+          {t('booking.legendAvailable')}
+        </div>
+
+        <div className="flex items-center gap-2">
+          <div className="w-4 h-4 rounded bg-gray-200 border border-gray-300"></div>
+          {t('booking.legendBooked')}
+        </div>
       </div>
 
       <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-6">
         <div className="flex items-center justify-between mb-6">
-          <button onClick={() => setCurrentDate(subMonths(currentDate, 1))} className="p-2 hover:bg-gray-100 rounded-full transition-colors"><ChevronLeft size={20} /></button>
+          <button
+            onClick={() => setCurrentDate(subMonths(currentDate, 1))}
+            className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+          >
+            <ChevronLeft size={20} />
+          </button>
+
           <div className="text-center">
             <h2 className="text-xl font-bold text-[#1A1A1A]">{format(currentDate, 'MMMM yyyy')}</h2>
             <p className="text-xs text-gray-400 uppercase tracking-widest mt-1">{t('calendar.schedule')}</p>
           </div>
-          <button onClick={() => setCurrentDate(addMonths(currentDate, 1))} className="p-2 hover:bg-gray-100 rounded-full transition-colors"><ChevronRight size={20} /></button>
+
+          <button
+            onClick={() => setCurrentDate(addMonths(currentDate, 1))}
+            className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+          >
+            <ChevronRight size={20} />
+          </button>
         </div>
 
         <div className="grid grid-cols-7 gap-2 mb-2">
@@ -399,11 +554,13 @@ export default function BookMeeting({ isOpen, onClose, preSelectedDate }: BookMe
           {Array.from({ length: startOfMonth(currentDate).getDay() }).map((_, i) => (
             <div key={`empty-${i}`} />
           ))}
+
           {days.map(day => {
             const dayBlocks = getDayBlocks(day);
             const isPast = isBefore(startOfDay(day), startOfDay(new Date()));
             const isSelected = selectedDay && isSameDay(day, selectedDay);
             const today = isToday(day);
+
             return (
               <button
                 key={day.toISOString()}
@@ -420,20 +577,28 @@ export default function BookMeeting({ isOpen, onClose, preSelectedDate }: BookMe
                 }`}
               >
                 <div className={`text-sm font-bold ${isSelected ? 'text-white' : ''}`}>{format(day, 'd')}</div>
+
                 {isPast && <div className="text-[8px] text-gray-300 mt-1">✕</div>}
+
                 {!isPast && dayBlocks.length > 0 && (
                   <div className="flex flex-col gap-0.5 mt-1 flex-1 justify-end">
                     {dayBlocks.slice(0, 2).map((b, i) => (
-                      <div key={i} className={`text-[8px] px-1 py-0.5 rounded truncate ${
-                        b.type === 'unavailable'
-                          ? (isSelected ? 'bg-white/20 text-white/80' : 'bg-red-100 text-red-600')
-                          : (isSelected ? 'bg-white/20 text-white/80' : 'bg-amber-100 text-amber-600')
-                      }`}>
+                      <div
+                        key={i}
+                        className={`text-[8px] px-1 py-0.5 rounded truncate ${
+                          b.type === 'unavailable'
+                            ? (isSelected ? 'bg-white/20 text-white/80' : 'bg-red-100 text-red-600')
+                            : (isSelected ? 'bg-white/20 text-white/80' : 'bg-amber-100 text-amber-600')
+                        }`}
+                      >
                         {b.title}
                       </div>
                     ))}
+
                     {dayBlocks.length > 2 && (
-                      <div className={`text-[8px] ${isSelected ? 'text-white/60' : 'text-gray-400'}`}>+{dayBlocks.length - 2} {t('booking.more')}</div>
+                      <div className={`text-[8px] ${isSelected ? 'text-white/60' : 'text-gray-400'}`}>
+                        +{dayBlocks.length - 2} {t('booking.more')}
+                      </div>
                     )}
                   </div>
                 )}
@@ -445,13 +610,21 @@ export default function BookMeeting({ isOpen, onClose, preSelectedDate }: BookMe
 
       <AnimatePresence>
         {selectedDay && !isPastDay && (
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 20 }} className="bg-white rounded-3xl shadow-sm border border-gray-100 p-6">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 20 }}
+            className="bg-white rounded-3xl shadow-sm border border-gray-100 p-6"
+          >
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-lg font-bold flex items-center gap-2 text-[#8b1e1e]">
                 <Clock size={18} />
-                {format(selectedDay, 'EEEE, MMMM d, yyyy')}
+                {selectedDayFormatted}
               </h3>
-              <button onClick={() => setSelectedDay(null)} className="p-2 hover:bg-gray-100 rounded-full transition-colors"><X size={18} /></button>
+
+              <button onClick={closeSelectedDay} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
+                <X size={18} />
+              </button>
             </div>
 
             {daySlots.length > 0 && (
@@ -460,18 +633,25 @@ export default function BookMeeting({ isOpen, onClose, preSelectedDate }: BookMe
                   <Ban size={14} className="text-red-500" />
                   <span className="text-xs font-bold text-gray-500 uppercase tracking-widest">{t('booking.blockedSlots')}</span>
                 </div>
+
                 <div className="space-y-2">
                   {daySlots.map((slot, i) => (
-                    <div key={i} className={`flex items-center justify-between px-3 py-2 rounded-lg text-xs font-bold ${
-                      slot.type === 'unavailable'
-                        ? 'bg-red-100 text-red-700 border border-red-200'
-                        : 'bg-amber-100 text-amber-700 border border-amber-200'
-                    }`}>
+                    <div
+                      key={i}
+                      className={`flex items-center justify-between px-3 py-2 rounded-lg text-xs font-bold ${
+                        slot.type === 'unavailable'
+                          ? 'bg-red-100 text-red-700 border border-red-200'
+                          : 'bg-amber-100 text-amber-700 border border-amber-200'
+                      }`}
+                    >
                       <div className="flex items-center gap-2">
                         {slot.type === 'unavailable' ? <Ban size={12} /> : <CalendarIcon size={12} />}
                         <span>{slot.title}</span>
                       </div>
-                      <span className="opacity-75">{hourToLabel(slot.startHour, displayLocale)} - {hourToLabel(slot.endHour, displayLocale)}</span>
+
+                      <span className="opacity-75">
+                        {hourToLabel(slot.startHour, displayLocale)} - {hourToLabel(slot.endHour, displayLocale)}
+                      </span>
                     </div>
                   ))}
                 </div>
@@ -482,6 +662,7 @@ export default function BookMeeting({ isOpen, onClose, preSelectedDate }: BookMe
               {slotHours.map(hour => {
                 const status = slotStatus(selectedDay, hour);
                 const isSel = selectedSlot === hour;
+
                 return (
                   <button
                     key={hour}
@@ -506,35 +687,85 @@ export default function BookMeeting({ isOpen, onClose, preSelectedDate }: BookMe
             </div>
 
             {selectedSlot !== null && !success && (
-              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-stone-50 rounded-2xl p-5 border border-gray-100">
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="bg-stone-50 rounded-2xl p-5 border border-gray-100"
+              >
                 <h4 className="font-bold text-sm text-gray-500 mb-3 uppercase tracking-widest">
                   {t('booking.bookFor')} {hourToLabel(selectedSlot, displayLocale)}
                 </h4>
+
                 <form onSubmit={handleSubmit} className="space-y-3">
                   <div>
-                    <label className="text-xs font-bold text-gray-400 uppercase tracking-widest flex items-center gap-1 mb-1"><User size={12} /> {t('booking.name')}</label>
-                    <input required type="text" className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#8B1E1E]/20 outline-none text-sm" value={name} onChange={e => setName(e.target.value)} placeholder={t('booking.namePlaceholder')} />
+                    <label className="text-xs font-bold text-gray-400 uppercase tracking-widest flex items-center gap-1 mb-1">
+                      <User size={12} /> {t('booking.name')}
+                    </label>
+                    <input
+                      required
+                      type="text"
+                      className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#8B1E1E]/20 outline-none text-sm"
+                      value={name}
+                      onChange={e => setName(e.target.value)}
+                      placeholder={t('booking.namePlaceholder')}
+                    />
                   </div>
+
                   <div>
-                    <label className="text-xs font-bold text-gray-400 uppercase tracking-widest flex items-center gap-1 mb-1"><Mail size={12} /> {t('booking.email')}</label>
-                    <input required type="email" className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#8B1E1E]/20 outline-none text-sm" value={email} onChange={e => setEmail(e.target.value)} placeholder={t('booking.emailPlaceholder')} />
+                    <label className="text-xs font-bold text-gray-400 uppercase tracking-widest flex items-center gap-1 mb-1">
+                      <Mail size={12} /> {t('booking.email')}
+                    </label>
+                    <input
+                      required
+                      type="email"
+                      className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#8B1E1E]/20 outline-none text-sm"
+                      value={email}
+                      onChange={e => setEmail(e.target.value)}
+                      placeholder={t('booking.emailPlaceholder')}
+                    />
                   </div>
+
                   <div>
-                    <label className="text-xs font-bold text-gray-400 uppercase tracking-widest flex items-center gap-1 mb-1"><MessageSquare size={12} /> {t('booking.reason')}</label>
-                    <textarea required rows={2} className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#8B1E1E]/20 outline-none text-sm resize-none" value={reason} onChange={e => setReason(e.target.value)} placeholder={t('booking.reasonPlaceholder')} />
+                    <label className="text-xs font-bold text-gray-400 uppercase tracking-widest flex items-center gap-1 mb-1">
+                      <MessageSquare size={12} /> {t('booking.reason')}
+                    </label>
+                    <textarea
+                      required
+                      rows={2}
+                      className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#8B1E1E]/20 outline-none text-sm resize-none"
+                      value={reason}
+                      onChange={e => setReason(e.target.value)}
+                      placeholder={t('booking.reasonPlaceholder')}
+                    />
                   </div>
-                  <button disabled={loading} type="submit" className="w-full py-3 bg-[#8B1E1E] text-white rounded-xl font-bold shadow hover:bg-[#641414] transition-all flex items-center justify-center gap-2 text-sm">
-                    {loading ? <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white"></div> : <><CheckCircle size={14} /> {t('booking.submit')}</>}
+
+                  <button
+                    disabled={loading}
+                    type="submit"
+                    className="w-full py-3 bg-[#8B1E1E] text-white rounded-xl font-bold shadow hover:bg-[#641414] transition-all flex items-center justify-center gap-2 text-sm"
+                  >
+                    {loading ? (
+                      <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white"></div>
+                    ) : (
+                      <>
+                        <CheckCircle size={14} /> {t('booking.submit')}
+                      </>
+                    )}
                   </button>
                 </form>
               </motion.div>
             )}
 
             {success && (
-              <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="text-center py-8">
+              <motion.div
+                initial={{ scale: 0.9, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                className="text-center py-8"
+              >
                 <div className="w-16 h-16 bg-green-50 rounded-full flex items-center justify-center mx-auto mb-4">
                   <CheckCircle size={32} className="text-green-600" />
                 </div>
+
                 <h4 className="text-xl font-bold text-[#8b1e1e] mb-2">{t('booking.successTitle')}</h4>
                 <p className="text-gray-500 text-sm">{t('booking.successDesc')}</p>
               </motion.div>
@@ -544,7 +775,11 @@ export default function BookMeeting({ isOpen, onClose, preSelectedDate }: BookMe
       </AnimatePresence>
 
       {selectedDay && isPastDay && (
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="bg-red-50 rounded-2xl p-5 border border-red-100 text-center">
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="bg-red-50 rounded-2xl p-5 border border-red-100 text-center"
+        >
           <AlertCircle size={24} className="text-red-500 mx-auto mb-2" />
           <p className="text-red-600 font-bold">{t('booking.pastDay')}</p>
         </motion.div>
@@ -558,28 +793,41 @@ export default function BookMeeting({ isOpen, onClose, preSelectedDate }: BookMe
     return (
       <AnimatePresence>
         {isOpen && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 z-50 flex items-start justify-center p-4 overflow-y-auto"
-          >
+          <>
             <motion.div
-              initial={{ scale: 0.95, y: 20 }}
-              animate={{ scale: 1, y: 0 }}
-              exit={{ scale: 0.95, y: 20 }}
-              className="relative w-full max-w-5xl bg-gray-50 rounded-3xl my-8"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black/50 z-50 flex items-start justify-center p-4 overflow-y-auto"
             >
-              <button onClick={onClose} className="absolute top-4 right-4 z-10 p-2 bg-white rounded-full shadow-lg hover:bg-gray-100 transition-colors">
-                <X size={20} />
-              </button>
-              {content}
+              <motion.div
+                initial={{ scale: 0.95, y: 20 }}
+                animate={{ scale: 1, y: 0 }}
+                exit={{ scale: 0.95, y: 20 }}
+                className="relative w-full max-w-5xl bg-gray-50 rounded-3xl my-8"
+              >
+                <button
+                  onClick={onClose}
+                  className="absolute top-4 right-4 z-10 p-2 bg-white rounded-full shadow-lg hover:bg-gray-100 transition-colors"
+                >
+                  <X size={20} />
+                </button>
+
+                {content}
+              </motion.div>
             </motion.div>
-          </motion.div>
+
+            {dayPopup}
+          </>
         )}
       </AnimatePresence>
     );
   }
 
-  return content;
+  return (
+    <>
+      {content}
+      {dayPopup}
+    </>
+  );
 }
