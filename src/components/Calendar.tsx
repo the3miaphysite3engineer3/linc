@@ -5,7 +5,7 @@ import type { Meeting, MeetingRequest } from '../types';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, addMonths, subMonths, parseISO } from 'date-fns';
 import { ar, enUS } from 'date-fns/locale';
 import { Plus, Trash2, Video, MapPin, Clock, X, ChevronLeft, ChevronRight, Wand2, LogOut, Send, Users, Check, ChevronDown, Calendar as CalendarIcon, CheckCircle, XCircle, Hourglass, Mail, User, Bot } from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion } from 'motion/react';
 import {
   createCalendarMeetLink,
   generatePlaceholderLink,
@@ -146,7 +146,6 @@ export default function Calendar() {
   const [meetingRequests, setMeetingRequests] = useState<MeetingRequest[]>([]);
   const [showRequests, setShowRequests] = useState(false);
   const [selectedSlotDay, setSelectedSlotDay] = useState<Date | null>(null);
-  const [showSlotDayPopup, setShowSlotDayPopup] = useState(false);
   const [slotBlockingLoading, setSlotBlockingLoading] = useState(false);
 
   const [availability, setAvailability] = useState<Availability[]>([]);
@@ -1234,34 +1233,10 @@ Otherwise, provide a helpful response about their calendar.`;
     }
   };
 
-  const handleSlotDayClick = (day: Date) => {
-    setSelectedSlotDay(day);
-    setShowSlotDayPopup(true);
-  };
-
-  const closeSlotDay = () => {
-    setSelectedSlotDay(null);
-    setShowSlotDayPopup(false);
-  };
-
-  const getAvailablePastorSlotHours = (day: Date): number[] => {
-    return slotBlockHours.filter(hour => getPastorSlotStatus(day, hour) === 'available');
-  };
-
-  const handlePopupSlotBlock = async (day: Date, hour: number) => {
-    await handleToggleSlotBlock(day, hour);
-  };
-
   const slotBlockHours = Array.from(
     { length: Math.floor((SLOT_BLOCK_END - SLOT_BLOCK_START) / SLOT_BLOCK_DURATION) },
     (_, index) => SLOT_BLOCK_START + index * SLOT_BLOCK_DURATION
   );
-
-  const selectedSlotDayFormatted = selectedSlotDay
-    ? format(selectedSlotDay, 'EEEE, MMMM d, yyyy', { locale: dateLocale })
-    : '';
-
-  const availablePopupSlotHours = selectedSlotDay ? getAvailablePastorSlotHours(selectedSlotDay) : [];
 
   const selectedCount = selectedParticipants.length;
   const selectedNames = participants
@@ -1483,7 +1458,7 @@ Otherwise, provide a helpful response about their calendar.`;
           return (
             <div
               key={day.toISOString()}
-              onClick={() => handleSlotDayClick(day)}
+              onClick={() => setSelectedSlotDay(day)}
               className={`min-h-[140px] bg-white rounded-2xl p-3 border transition-all hover:border-[#8B1E1E]/20 cursor-pointer ${selectedSlotDay && isSameDay(selectedSlotDay, day) ? 'border-[#8B1E1E] ring-2 ring-[#8B1E1E]/10' : 'border-gray-100'} ${i === 0 ? [
                 '',
                 'md:col-start-1',
@@ -1609,7 +1584,7 @@ Otherwise, provide a helpful response about their calendar.`;
             <div>
               <h3 className="text-lg font-bold flex items-center gap-2 text-[#8B1E1E]">
                 <Clock size={18} />
-                {selectedSlotDayFormatted}
+                {format(selectedSlotDay, 'EEEE, MMMM d, yyyy', { locale: dateLocale })}
               </h3>
               <p className="text-xs text-gray-400 uppercase tracking-widest mt-1">
                 {t('calendar.availabilityOpensBooking')}
@@ -1617,7 +1592,7 @@ Otherwise, provide a helpful response about their calendar.`;
             </div>
             <button
               type="button"
-              onClick={closeSlotDay}
+              onClick={() => setSelectedSlotDay(null)}
               className="self-start sm:self-auto p-2 hover:bg-gray-100 rounded-full transition-colors"
             >
               <X size={18} />
@@ -1654,95 +1629,6 @@ Otherwise, provide a helpful response about their calendar.`;
           </div>
         </section>
       )}
-
-      <AnimatePresence>
-        {selectedSlotDay && showSlotDayPopup && (
-          <motion.div
-            key="slot-day-popup-overlay"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/45 backdrop-blur-md px-4 py-6"
-            onClick={() => setShowSlotDayPopup(false)}
-            dir={dir}
-            style={{ fontFamily: 'Arial, sans-serif' }}
-          >
-            <motion.div
-              key="slot-day-popup-panel"
-              initial={{ opacity: 0, scale: 0.94, y: 18 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.94, y: 18 }}
-              transition={{ type: 'spring', stiffness: 260, damping: 24 }}
-              className="w-full max-w-2xl max-h-[85vh] overflow-hidden rounded-3xl bg-white shadow-2xl border border-white/70"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="relative bg-[#8B1E1E] px-6 py-5 text-white">
-                <button
-                  type="button"
-                  onClick={() => setShowSlotDayPopup(false)}
-                  className="absolute top-4 right-4 rounded-full bg-white/15 p-2 transition-colors hover:bg-white/25"
-                >
-                  <X size={18} />
-                </button>
-
-                <div className="flex items-center gap-3 pr-10">
-                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white/15">
-                    <Clock size={24} />
-                  </div>
-
-                  <div>
-                    <h3 className="text-xl font-bold">
-                      {t('calendar.available')} {t('booking.timeLabel')}
-                    </h3>
-                    <p className="mt-1 text-sm text-white/80">
-                      {selectedSlotDayFormatted}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="max-h-[62vh] overflow-y-auto p-6">
-                {availablePopupSlotHours.length > 0 ? (
-                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-                    {availablePopupSlotHours.map(hour => (
-                      <button
-                        key={hour}
-                        type="button"
-                        disabled={slotBlockingLoading}
-                        onClick={() => handlePopupSlotBlock(selectedSlotDay, hour)}
-                        className="rounded-2xl border border-green-200 bg-green-50 p-4 text-sm font-bold text-green-700 transition-all hover:-translate-y-0.5 hover:border-green-300 hover:bg-green-100 hover:shadow-md disabled:cursor-not-allowed disabled:opacity-60"
-                      >
-                        <div className="flex items-center justify-center gap-2">
-                          <Clock size={15} />
-                          <span>{hourToLabel(hour, displayLocale)} - {hourToLabel(hour + SLOT_BLOCK_DURATION, displayLocale)}</span>
-                        </div>
-
-                        <div className="mt-1 text-[10px] uppercase tracking-widest text-green-500">
-                          {t('calendar.available')}
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="py-10 text-center">
-                    <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-gray-50">
-                      <Clock size={30} className="text-gray-400" />
-                    </div>
-
-                    <p className="font-bold text-[#8B1E1E]">
-                      {t('calendar.noAvailabilityOpened')}
-                    </p>
-
-                    <p className="mt-2 text-sm text-gray-500">
-                      {t('calendar.availabilityOpensBooking')}
-                    </p>
-                  </div>
-                )}
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
 
       <section className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
