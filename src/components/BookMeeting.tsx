@@ -62,7 +62,6 @@ export default function BookMeeting({ isOpen, onClose, preSelectedDate }: BookMe
   const displayLocale = locale as 'en' | 'ar';
   const [currentDate, setCurrentDate] = useState(preSelectedDate ? new Date(preSelectedDate) : new Date());
   const [selectedDay, setSelectedDay] = useState<Date | null>(null);
-  const [showDayPopup, setShowDayPopup] = useState(false);
   const [meetingBlocks, setMeetingBlocks] = useState<BusyBlock[]>([]);
   const [pendingBlocks, setPendingBlocks] = useState<BusyBlock[]>([]);
   const [unavailableBlocks, setUnavailableBlocks] = useState<BusyBlock[]>([]);
@@ -206,14 +205,12 @@ export default function BookMeeting({ isOpen, onClose, preSelectedDate }: BookMe
       const d = new Date(preSelectedDate);
       setSelectedDay(d);
       setCurrentDate(d);
-      setShowDayPopup(true);
     }
   }, [preSelectedDate]);
 
   useEffect(() => {
     if (selectedDay && isBefore(startOfDay(selectedDay), startOfDay(new Date()))) {
       setIsPastDay(true);
-      setShowDayPopup(false);
     } else {
       setIsPastDay(false);
     }
@@ -288,25 +285,12 @@ export default function BookMeeting({ isOpen, onClose, preSelectedDate }: BookMe
     setSelectedDay(day);
     setSelectedSlot(null);
     setSuccess(false);
-    setShowDayPopup(true);
   };
 
   const handleSlotClick = (hour: number) => {
     if (!selectedDay || isSlotBooked(selectedDay, hour) || isSlotInfeasible(selectedDay, hour)) return;
     setSelectedSlot(hour);
     setSuccess(false);
-  };
-
-  const handlePopupSlotClick = (hour: number) => {
-    handleSlotClick(hour);
-    setShowDayPopup(false);
-  };
-
-  const closeSelectedDaySection = () => {
-    setSelectedDay(null);
-    setSelectedSlot(null);
-    setSuccess(false);
-    setShowDayPopup(false);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -369,10 +353,6 @@ export default function BookMeeting({ isOpen, onClose, preSelectedDate }: BookMe
     { length: Math.floor((BUSINESS_END - BUSINESS_START) / SLOT_DURATION) },
     (_, index) => BUSINESS_START + index * SLOT_DURATION
   );
-
-  const availableSlotHours = selectedDay
-    ? slotHours.filter(hour => slotStatus(selectedDay, hour) === 'available')
-    : [];
 
   const content = (
     <div className="space-y-8 max-w-5xl mx-auto px-4 py-8" dir={dir} style={{ fontFamily: 'Arial, sans-serif' }}>
@@ -464,98 +444,6 @@ export default function BookMeeting({ isOpen, onClose, preSelectedDate }: BookMe
       </div>
 
       <AnimatePresence>
-        {selectedDay && !isPastDay && showDayPopup && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[70] bg-black/45 backdrop-blur-md flex items-center justify-center px-4 py-8"
-            onClick={() => setShowDayPopup(false)}
-          >
-            <motion.div
-              initial={{ scale: 0.94, opacity: 0, y: 18 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.94, opacity: 0, y: 18 }}
-              transition={{ type: 'spring', stiffness: 260, damping: 24 }}
-              className="w-full max-w-2xl bg-white rounded-3xl shadow-2xl border border-white/60 overflow-hidden"
-              onClick={(e) => e.stopPropagation()}
-              dir={dir}
-            >
-              <div className="relative bg-gradient-to-br from-[#8b1e1e] to-[#641414] text-white p-6">
-                <button
-                  onClick={() => setShowDayPopup(false)}
-                  className="absolute top-4 right-4 p-2 rounded-full bg-white/15 hover:bg-white/25 transition-colors"
-                  aria-label={t('booking.close')}
-                >
-                  <X size={18} />
-                </button>
-
-                <div className="flex items-center gap-3 mb-3">
-                  <div className="w-11 h-11 rounded-2xl bg-white/15 flex items-center justify-center">
-                    <Clock size={22} />
-                  </div>
-                  <div>
-                    <h3 className="text-xl font-bold">
-                      {t('booking.legendAvailable')} {t('booking.timeLabel')}
-                    </h3>
-                    <p className="text-white/80 text-sm mt-1">
-                      {format(selectedDay, 'EEEE, MMMM d, yyyy')}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="p-6">
-                {availableSlotHours.length > 0 ? (
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                    {availableSlotHours.map(hour => {
-                      const isSel = selectedSlot === hour;
-                      return (
-                        <button
-                          key={hour}
-                          onClick={() => handlePopupSlotClick(hour)}
-                          className={`group p-4 rounded-2xl border text-sm font-bold transition-all ${
-                            isSel
-                              ? 'bg-[#8b1e1e] border-[#8b1e1e] text-white shadow-lg scale-[1.02]'
-                              : 'bg-green-50 border-green-200 text-green-700 hover:bg-green-100 hover:border-green-300 hover:shadow-md hover:-translate-y-0.5'
-                          }`}
-                        >
-                          <div className="flex items-center justify-center gap-2">
-                            <Clock size={15} />
-                            <span>{hourToLabel(hour, displayLocale)}</span>
-                          </div>
-                          <div className={`text-[10px] mt-1 ${isSel ? 'text-white/80' : 'text-green-500'}`}>
-                            {t('booking.slotAvailable')}
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <div className="text-center py-10">
-                    <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-4">
-                      <AlertCircle size={30} className="text-red-500" />
-                    </div>
-                    <p className="font-bold text-[#8b1e1e]">{t('booking.unavailable')}</p>
-                    <p className="text-sm text-gray-500 mt-2">{t('booking.legendInfeasible')}</p>
-                  </div>
-                )}
-
-                <div className="mt-6 flex justify-end">
-                  <button
-                    onClick={() => setShowDayPopup(false)}
-                    className="px-5 py-2.5 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold text-sm transition-colors"
-                  >
-                    {t('booking.close')}
-                  </button>
-                </div>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      <AnimatePresence>
         {selectedDay && !isPastDay && (
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 20 }} className="bg-white rounded-3xl shadow-sm border border-gray-100 p-6">
             <div className="flex items-center justify-between mb-6">
@@ -563,7 +451,7 @@ export default function BookMeeting({ isOpen, onClose, preSelectedDate }: BookMe
                 <Clock size={18} />
                 {format(selectedDay, 'EEEE, MMMM d, yyyy')}
               </h3>
-              <button onClick={closeSelectedDaySection} className="p-2 hover:bg-gray-100 rounded-full transition-colors"><X size={18} /></button>
+              <button onClick={() => setSelectedDay(null)} className="p-2 hover:bg-gray-100 rounded-full transition-colors"><X size={18} /></button>
             </div>
 
             {daySlots.length > 0 && (
